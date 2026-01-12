@@ -5,13 +5,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch } from 'react-redux';
-
 import CheckoutForm from './src/components/CheckoutForm';
-import { MyDrawer } from './src/components/Drawer';
 import MessageDisplay from './src/components/MessageDisplay';
+import './src/firebase/firebase';
 import store from './src/redux/store';
 import BuywashScreen from './src/screens/BuywashScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
@@ -21,15 +20,18 @@ import RegisterCarScreen from './src/screens/RegisterCarScreen';
 import StationPage from './src/screens/StationPage';
 
 // Redux actions and helpers
+import messaging from '@react-native-firebase/messaging';
+import BottomTabs from './src/components/BottomTabs';
 import { getUserCars } from './src/redux/actions/carActions';
 import { RootStackParamList } from './src/redux/types/stackParams';
 import QrScreen from './src/screens/QrScreen';
+import SignInScreen from './src/screens/SignInScreen';
+import SignUpScreen from './src/screens/SignUpScreen';
 import { getSession } from './src/utils/storage';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const STRIPE_PUBLISHABLE_KEY =
   'pk_test_51NInIUC7hkCZnQICpeKcU6piJANDfXyV3wcXXFPP39hu4KlZRMj4AvuHPiSv5Kv30KGK79zFRMRfGR2rtw0XQJEV00IYaSztHB';
-
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -48,15 +50,26 @@ function AppContent() {
   const dispatch = useDispatch();
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // ✅ Restore saved session on app start
+  // ✅ 1. Handle Foreground Notifications
+  // This was outside the component before, which caused the crash!
+  useEffect(() => {
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      Alert.alert(
+        remoteMessage.notification?.title || "Notification",
+        remoteMessage.notification?.body || ""
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // ✅ 2. Restore saved session on app start
   useEffect(() => {
     async function restoreSession() {
       const session = await getSession();
       if (session?.token) {
         console.log('✅ Restored session:', session.token);
-        // Restore token to Redux store
-         dispatch({ type: 'SIGN_IN_SUCCESS', payload: session });
-        // Fetch user cars
+        dispatch({ type: 'SIGN_IN_SUCCESS', payload: session });
         dispatch(getUserCars(session.token));
       }
       setIsRestoring(false);
@@ -74,11 +87,12 @@ function AppContent() {
 
   return (
     <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="zeriab.com.zcare">
-  
         <MessageDisplay />
         <NavigationContainer>
           <RootStack.Navigator screenOptions={{ headerShown: false }}>
-            <RootStack.Screen name="Drawer" component={MyDrawer} />
+            <RootStack.Screen name="MainTabs" component={BottomTabs} />
+            <RootStack.Screen name="SignIn" component={SignInScreen} />
+            <RootStack.Screen name="SignUp" component={SignUpScreen} />
             <RootStack.Screen name="StationPage" component={StationPage} />
             <RootStack.Screen name="Buywash" component={BuywashScreen} />
             <RootStack.Screen name="RegisterCar" component={RegisterCarScreen} />
@@ -86,10 +100,9 @@ function AppContent() {
             <RootStack.Screen name="PaymentScreen" component={PaymentScreen} />
             <RootStack.Screen name="PaymentConfirmation" component={PaymentConfirmation} />
             <RootStack.Screen name="CheckoutForm" component={CheckoutForm} />
-             <RootStack.Screen name="QrScreen" component={QrScreen} />
+            <RootStack.Screen name="QrScreen" component={QrScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
-
     </StripeProvider>
   );
 }

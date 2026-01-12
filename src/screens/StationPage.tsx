@@ -14,20 +14,15 @@ import { selectStation } from '../redux/actions/stationActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { CarWashingProgram, RootState } from '../redux/types/stationsActionTypes';
 
-type StationPageRouteProp = RouteProp<
-  RootStackParamList,
-  'StationPage'
->;
+type StationPageRouteProp = RouteProp<RootStackParamList, 'StationPage'>;
 
-type StationPageNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  'StationPage'
->;
+type StationPageNavigationProp = NativeStackNavigationProp<RootStackParamList, 'StationPage'>;
 
 interface Props {
   route: StationPageRouteProp;
   navigation: StationPageNavigationProp;
 }
+
 const StationPage: React.FC<Props> = ({ route, navigation }) => {
   const { station } = route.params;
   const dispatch = useDispatch();
@@ -47,24 +42,23 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: false, // We'll use custom back button
+      headerShown: false, // We handle custom header
     });
   }, [navigation]);
 
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
-        {/* Custom Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+    <View style={styles.container}>
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>{station.name}</Text>
+      </View>
 
-        {/* Station Info Card */}
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Station Info */}
         <View style={styles.stationCard}>
-          <Text style={styles.stationName}>{station.name}</Text>
           <Text style={styles.stationAddress}>{station.address}</Text>
         </View>
 
@@ -84,47 +78,55 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
         ) : (
           <Text style={styles.noProgramsText}>No programs available</Text>
         )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  container: {
-    padding: 20,
+  container: { flex: 1, backgroundColor: '#f8f8f8' },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-      paddingTop: 40,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 15,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  stationCard: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 3,
+    paddingTop: 50, // Push down below the status bar
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    marginBottom: 20,
-    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    zIndex: 10,
   },
-  stationName: {
-    fontSize: 24,
+  backButton: {
+    marginRight: 20,
+  },
+  backButtonText: {
+    fontSize: 18,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    flexShrink: 1,
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  stationCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    marginBottom: 20,
   },
   stationAddress: {
     fontSize: 16,
@@ -132,27 +134,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
-    alignSelf: 'flex-start',
+    marginBottom: 15,
   },
   programCard: {
     width: '100%',
-    backgroundColor: '#ffffff',
-    paddingVertical: 15,
+    backgroundColor: '#fff',
+    paddingVertical: 18,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 2,
+    elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   programText: {
     fontSize: 16,
@@ -162,12 +163,13 @@ const styles = StyleSheet.create({
   programPrice: {
     fontSize: 16,
     color: '#007AFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   noProgramsText: {
     fontSize: 16,
     color: '#999',
     marginTop: 10,
+    textAlign: 'center',
   },
 });
 

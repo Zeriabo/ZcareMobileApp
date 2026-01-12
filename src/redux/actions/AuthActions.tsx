@@ -1,28 +1,26 @@
 import axios from 'axios';
-import {Dispatch} from 'redux';
+import { Dispatch } from 'redux';
 
-import {addMessage, clearMessages} from './messageActions';
-import {getUserCars} from './carActions';
-import {saveSession,removeSession} from "../../utils/storage"
+import { displayLocalNotification } from '../../utils/notifications';
+import { removeSession, saveSession } from "../../utils/storage";
+import { getUserCars } from './carActions';
+import { addMessage, clearMessages } from './messageActions';
 
 export const signIn = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {
   console.log(process.env.EXPO_PUBLIC_SERVER_URL+ '/users/signin');
-
-fetch(process.env.EXPO_PUBLIC_SERVER_URL+'/users/')
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.log('Error fetching users:', err));
-
 
  try {
   const response = await axios.post(
     process.env.EXPO_PUBLIC_SERVER_URL + '/users/signin',
     userData
   );
-
+console.log(response.data.firstName)
   console.log('Sign in response:', response.data);
-
+await displayLocalNotification(
+          'Sign In Successful', 
+          `Welcome, ${response.data.firstName || 'User'}!`
+        );
 
   await saveSession(response.data.token);
 

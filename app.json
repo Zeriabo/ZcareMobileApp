@@ -3,6 +3,10 @@
     "name": "Zcare",
     "slug": "zcare",
     "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.zcare.auth", 
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
     "platforms": [
       "ios",
       "android"

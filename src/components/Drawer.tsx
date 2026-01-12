@@ -1,5 +1,6 @@
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useSelector } from 'react-redux';
+import { useNotifications } from '../hooks/useNotifications';
 import { RootState } from '../redux/store';
 import MyBookingsScreen from '../screens/MyBookingsScreen';
 import MyCars from '../screens/MyCars';
@@ -7,15 +8,14 @@ import RegisterCarScreen from '../screens/RegisterCarScreen';
 import SignInScreen from '../screens/SignInScreen';
 import SignOutScreen from '../screens/SignOutScreen';
 import SignUpScreen from '../screens/SignUpScreen';
-import BottomTabs from './BottomTabs'; // import your bottom tabs component
-
+import BottomTabs from './BottomTabs';
 const Drawer = createDrawerNavigator();
 
 export function MyDrawer() {
   const user = useSelector((state: RootState) => state.user.user);
   const cars = useSelector((state: RootState) => state.cars.cars);
   const bookings = useSelector((state: RootState) => state.booking.bookings);
-
+  useNotifications();
   const activeBookings = bookings.filter((b) => !b.executed);
 
   if (!user) {
@@ -32,7 +32,7 @@ export function MyDrawer() {
   return (
     <Drawer.Navigator>
       {/* BottomTabs replaces HomeScreen */}
-      <Drawer.Screen name="Home" component={BottomTabs} />
+      <Drawer.Screen name="Mainv" component={BottomTabs} />
       <Drawer.Screen name="SignOut" component={SignOutScreen} />
 
       {/* Cars logic */}

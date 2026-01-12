@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { NavigationRoute, NavigationScreenProp } from 'react-navigation';
 import { useDispatch, useSelector } from 'react-redux';
@@ -158,12 +158,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
 switchContainer: {
   position: 'absolute',
-  top: Platform.OS === 'ios' ? 15 : 10, // 👈 move UP
+  bottom: 40, // moves it up from the bottom
   alignSelf: 'center',
   zIndex: 20,
 },
+
 
 
 switchInner: {

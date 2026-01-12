@@ -1,96 +1,126 @@
-import { HeaderBackButton } from '@react-navigation/elements';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { confirm_payment } from '../redux/actions/BuyActions';
 import { RootStackParamList } from '../redux/types/stackParams';
-const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1, // Use flex to center content vertically
-    backgroundColor: 'gray',
-    justifyContent: 'center', // Center content vertically
-    alignItems: 'center', // Center content horizontally
-  },
-  boxedContainer: {
-    width: '80%', // Adjust the width as needed
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 5,
-    backgroundColor: 'gray',
-  },
-  checkoutButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 5,
-    backgroundColor: 'purple',
-    marginTop: 16,
-  },
-  checkoutText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  backButton: {
-    marginRight: 300,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: 'blue',
-  },
-});
+
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   'CheckoutScreen'
 >;
-const CheckoutScreen =  ({ route }: { route: any; navigation: CheckoutScreenNavigationProp }) => {
-  const [loading, setLoading] = useState(false);
+
+const CheckoutScreen = ({ route }: { route: any }) => {
   const dispatch = useDispatch();
   const pi = useSelector((state: any) => state.cart.pi);
-const navigation = useNavigation<CheckoutScreenNavigationProp>();
+  const navigation = useNavigation<CheckoutScreenNavigationProp>();
+  const [loading, setLoading] = useState(false);
 
-  const item = route.params;
-  useEffect(() => {
-    setLoading(false);
-  }, []);
-  
-const confirmPayment = async () => {
-  const payment = {
-    paymentIntentId: pi.paymentIntentId,
-    paymentMethodId: pi.paymentMethodId,
+  const confirmPayment = async () => {
+    if (!pi) return;
+    setLoading(true);
+
+    const payment = {
+      paymentIntentId: pi.paymentIntentId,
+      paymentMethodId: pi.paymentMethodId,
+    };
+
+    try {
+      const response = await dispatch(confirm_payment(payment));
+      navigation.navigate('QrScreen', { qrCode: response.payload.qrCode });
+    } catch (error: any) {
+      console.error('Payment error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  try {
-    const response = await dispatch(confirm_payment(payment));
-
-    // Navigate to QR screen instead of alert
-    navigation.navigate('QrScreen', { qrCode: response.payload.qrCode });
-  } catch (error: any) {
-    console.error('Payment error:', error);
-  }
-};
-
-
-
-
   return (
-    <View style={styles.mainContainer}>
-      <HeaderBackButton
+    <ScrollView style={styles.scrollContainer} contentContainerStyle={{ flexGrow: 1 }}>
+      {/* Back Button */}
+      <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
-      />
-      <View style={styles.boxedContainer}>
-        {/* Display your checkout details here */}
+      >
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
+      {/* Checkout Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Confirm Your Payment</Text>
+        <Text style={styles.cardText}>
+          Payment Amount: <Text style={styles.amount}>${pi?.amount || '0.00'}</Text>
+        </Text>
+
         <TouchableOpacity
+          style={styles.checkoutButton}
           onPress={confirmPayment}
-          style={styles.checkoutButton}>
-          <Text style={styles.checkoutText}>Confirm Payment</Text>
+          disabled={loading}
+        >
+          <Text style={styles.checkoutText}>
+            {loading ? 'Processing...' : 'Confirm Payment'}
+          </Text>
         </TouchableOpacity>
       </View>
-      
-    </View>
+    </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingTop: 40,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 20,
+  },
+  backButtonText: {
+    fontSize: 18,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 25,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 15,
+    color: '#333',
+  },
+  cardText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  amount: {
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+  checkoutButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+  },
+  checkoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
 
 export default CheckoutScreen;

@@ -14,6 +14,7 @@ const SignOutScreen: React.FC<any> = ({ navigation }) => {
         index: 0,
         routes: [{ name: 'Signin' }], // redirect to Signin after signout
       });
+      
     };
 
     handleSignOut();

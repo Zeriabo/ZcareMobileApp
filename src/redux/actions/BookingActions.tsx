@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { Dispatch } from 'redux';
+import { displayLocalNotification } from '../../utils/notifications';
 import { AppDispatch } from '../store';
 
 // Action Types
@@ -74,7 +75,11 @@ export const createBooking = (bookingInput: any) => {
 
       // Dispatch a success action
       dispatch(createBookingSuccess(response.data));
-
+      await displayLocalNotification(
+                'Booking Successful', 
+                `${(!response.data.executed)?'Valid':'Not Valid'}`
+              );
+      
       // ✅ Return response data so the component can use it
       return response.data;
     } catch (error) {
@@ -92,6 +97,11 @@ export const updateBooking = (bookingId: any, booking: any) => {
         booking,
       );
       dispatch(updateBookingSuccess(response.data));
+            await displayLocalNotification(
+                'Booking updated Successfully!', 
+                `${response.data}!`
+              );
+      
       // Handle navigation or other actions here
     } catch (error) {
       console.log(error);
