@@ -17,9 +17,10 @@ type Props = {
 
 const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const dispatch = useDispatch<any>();
-const { pi } = useSelector((state: any) => state.cart);
-const { user } = useSelector((state: any) => state.user);
+  const { pi } = useSelector((state: any) => state.cart);
+  const { user } = useSelector((state: any) => state.user);
   const selectedProgram = route.params.selectedProgram;
+
   const [program, setProgram] = useState<any>({});
   const [paymentMethod, setPaymentMethod] = useState<string>('');
 
@@ -27,45 +28,43 @@ const { user } = useSelector((state: any) => state.user);
     setProgram({ ...selectedProgram });
   }, [selectedProgram]);
 
- useEffect(() => {
-  if (pi && pi.paymentIntentId) {
-    setPaymentMethod(pi.paymentMethod);
-  } else {
-    setPaymentMethod('');
-  }
-}, [pi]);
+  useEffect(() => {
+    if (pi && pi.paymentIntentId) {
+      setPaymentMethod(pi.paymentMethod);
+    } else {
+      setPaymentMethod('');
+    }
+  }, [pi]);
 
-const handlePaymentMethodSelection = (method: string) => {
-  setPaymentMethod(method);
-  console.log('Selected Program:', selectedProgram);
-  dispatch(create_paymentIntent(selectedProgram, method));
-
-
-  navigation.navigate('CheckoutForm', { program: selectedProgram });
-};
+  const handlePaymentMethodSelection = (method: string) => {
+    setPaymentMethod(method);
+    dispatch(create_paymentIntent(selectedProgram, method));
+    navigation.navigate('CheckoutForm', { program: selectedProgram });
+  };
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false, 
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   return (
     <ScrollView style={styles.scrollContainer}>
       <View style={styles.container}>
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
+        {/* Header with Back Button */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{program.name}</Text>
+        </View>
 
         {/* Program Details Card */}
         <View style={styles.card}>
-          <Text style={styles.title}>{program.programType}</Text>
+          <Text style={styles.programType}>{program.programType}</Text>
           <Text style={styles.description}>{program.name}</Text>
-          <Text style={styles.price}>Price: ${program.price}</Text>
+          <Text style={styles.price}>${program.price}</Text>
 
           {user ? (
             <Button
@@ -73,6 +72,7 @@ const handlePaymentMethodSelection = (method: string) => {
               style={styles.paymentButton}
               disabled={paymentMethod === 'credit_card'}
               onPress={() => handlePaymentMethodSelection('credit_card')}
+              buttonColor="#007AFF"
             >
               Pay with Credit Card
             </Button>
@@ -90,39 +90,59 @@ const handlePaymentMethodSelection = (method: string) => {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
   },
   container: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-   paddingTop: 40,
+    paddingTop: 50,
+    paddingBottom: 20,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    paddingHorizontal: 15,
   },
   backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 15,
+    marginRight: 15,
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#007AFF',
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    flexShrink: 1,
   },
   card: {
-    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 20,
-    alignItems: 'center',
+    marginVertical: 20,
     elevation: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  programType: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 10,
-    textAlign: 'center',
+    marginBottom: 8,
   },
   description: {
     fontSize: 16,
@@ -131,19 +151,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   price: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FF3B30',
-    fontWeight: '600',
     marginBottom: 20,
   },
   paymentButton: {
     width: '100%',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   loginPrompt: {
     color: '#999',
-    marginTop: 10,
+    fontSize: 14,
     textAlign: 'center',
   },
 });

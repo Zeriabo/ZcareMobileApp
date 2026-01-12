@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
 
+import { displayLocalNotification } from '../../utils/notifications';
+import { updateBookingSuccess } from './BookingActions';
 import { addMessage, clearMessages } from './messageActions';
 export const buyWash = (program: any) => {
   return {
@@ -79,10 +81,15 @@ export const confirm_payment: any = (payment: any) => {
         process.env.EXPO_PUBLIC_SERVER_URL + '/payment/confirm-payment',
         payment,
       )
-      .then(response => {
+      .then(async response => {
         //this will return the status of the payment
         console.log('confirm payment');
         console.log(response);
+         dispatch(updateBookingSuccess(response.data));
+                    await displayLocalNotification(
+                        'Booking Successfully paid!', 
+                        `${response.data}!`
+                      );
         dispatch({type: 'PAYMENT_INTENT_SUCCESS', payload: response.data});
       })
       .catch(error => {

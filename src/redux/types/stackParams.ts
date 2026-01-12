@@ -10,4 +10,6 @@ export type RootStackParamList = {
   PaymentConfirmation: undefined;
   CheckoutForm: undefined;
   QrScreen: undefined;
+  SignIn: undefined;
+  SignUp:undefined;
 };

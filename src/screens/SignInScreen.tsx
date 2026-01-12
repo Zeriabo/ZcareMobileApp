@@ -1,58 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ImageBackground,
-} from 'react-native';
-import { TextInput, Button, Text, Snackbar } from 'react-native-paper';
-import { NavigationScreenProp, NavigationRoute } from 'react-navigation';
-import { useSelector, useDispatch } from 'react-redux';
+import messaging from '@react-native-firebase/messaging'; // Import Firebase Messaging
+import React, { useEffect, useState } from 'react';
+import { Alert, ImageBackground, StyleSheet, View } from 'react-native';
+import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
+import { useDispatch, useSelector } from 'react-redux';
 import { signIn } from '../redux/actions/AuthActions';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // Importing vector icons
 
-interface Props {
-  navigation: NavigationScreenProp<NavigationRoute>;
-}
+const SignInScreen = ({ navigation }: any) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
-const SignInScreen: React.FC<Props> = ({ navigation }) => {
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [snackbarVisible, setSnackbarVisible] = useState<boolean>(false);
   const dispatch = useDispatch();
-  const user = useSelector((state: any) => state.user);
+  const user = useSelector((state: any) => state.user.user);
   const error = useSelector((state: any) => state.user.error);
 
+  // 1. ✅ Request Notification Permissions & Handle Foreground Messages
   useEffect(() => {
-    if (user.user && user.user.id !== undefined) {
-      navigation.navigate('Home');
+    const setupNotifications = async () => {
+      // Request permission (Required for iOS and Android 13+)
+      const authStatus = await messaging().requestPermission();
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      if (enabled) {
+        console.log('Authorization status:', authStatus);
+      }
+    };
+
+    setupNotifications();
+
+    // Listen for messages while the app is in the FOREGROUND
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      Alert.alert(
+        remoteMessage.notification?.title || 'Notification',
+        remoteMessage.notification?.body || 'You have a new update.'
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // 2. ✅ Navigate to MainTabs after successful login
+  useEffect(() => {
+    if (user && user.id !== undefined) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' }],
+      });
     }
   }, [user, navigation]);
 
-  const handleSignIn = () => {
-    const user = {
-      username: username,
-      password: password,
-    };
-    dispatch(signIn(user));
+  // 3. ✅ Show snackbar if there is a login error
+  useEffect(() => {
     if (error) {
       setSnackbarVisible(true);
     }
+  }, [error]);
+
+  const handleSignIn = () => {
+    dispatch(signIn({ username, password }));
   };
 
   return (
     <ImageBackground
-      source={{ uri: 'https://example.com/your-background-image.jpg' }} // Replace with your desired image URL
+      source={{ uri: 'https://example.com/your-background-image.jpg' }} 
       style={styles.background}
       resizeMode="cover"
     >
       <View style={styles.container}>
         <Text style={styles.title}>Sign In</Text>
+
         <TextInput
           mode="outlined"
           label="Username"
           value={username}
           onChangeText={setUsername}
-          left={<TextInput.Icon name="account" />}
+          outlineColor="#4F46E5"
+          activeOutlineColor="#4F46E5"
+          left={<TextInput.Icon icon="account" />}
           style={styles.input}
         />
         <TextInput
@@ -61,23 +87,32 @@ const SignInScreen: React.FC<Props> = ({ navigation }) => {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          left={<TextInput.Icon name="lock" />}
+          outlineColor="#4F46E5"
+          activeOutlineColor="#4F46E5"
+          left={<TextInput.Icon icon="lock" />}
           style={styles.input}
         />
-        <Button mode="contained" onPress={handleSignIn} style={styles.button}>
+
+        <Button 
+          mode="contained" 
+          onPress={handleSignIn} 
+          style={styles.button}
+          buttonColor="#4F46E5"
+        >
           Sign In
         </Button>
-        {user.user && <Text style={styles.message}>Signed in successfully!</Text>}
+
+        {user && <Text style={styles.message}>Signed in successfully!</Text>}
+
         <Snackbar
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
           duration={3000}
           action={{
             label: 'Close',
-            onPress: () => {
-              setSnackbarVisible(false);
-            },
-          }}>
+            onPress: () => setSnackbarVisible(false),
+          }}
+        >
           {error || 'An error occurred. Please try again.'}
         </Snackbar>
       </View>
@@ -92,12 +127,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Semi-transparent white background
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 10,
     padding: 20,
-    width: '80%',
-    elevation: 5, // Adds a shadow effect on Android
-    shadowColor: '#000', // Shadow effect on iOS
+    width: '85%',
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -109,17 +144,9 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
   },
-  input: {
-    marginBottom: 15,
-  },
-  button: {
-    marginTop: 10,
-  },
-  message: {
-    color: 'green',
-    marginTop: 10,
-    textAlign: 'center',
-  },
+  input: { marginBottom: 15 },
+  button: { marginTop: 10, paddingVertical: 5 },
+  message: { color: 'green', marginTop: 10, textAlign: 'center' },
 });
 
 export default SignInScreen;
