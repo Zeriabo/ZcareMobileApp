@@ -1,12 +1,12 @@
-import {Action} from 'redux';
-import {SELECT_WASHES} from '../actions/WashesActions';
+import { SELECT_WASHES } from '../actions/WashesActions';
 import {
   FETCH_WASHES_FAILURE,
   FETCH_WASHES_SUCCESS,
   Wash,
 } from '../types/washesActionTypes';
 
-interface WashesState {
+
+export interface WashesState {  
   washes: Wash[] | null;
 }
 const initialState: WashesState = {

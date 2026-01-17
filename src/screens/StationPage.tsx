@@ -72,7 +72,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
               onPress={() => handleProgramSelection(program)}
             >
               <Text style={styles.programText}>{program.name}</Text>
-              <Text style={styles.programPrice}>${program.price}</Text>
+              <Text style={styles.programPrice}>€{program.price}</Text>
             </TouchableOpacity>
           ))
         ) : (

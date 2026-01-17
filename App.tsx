@@ -10,7 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch } from 'react-redux';
 import CheckoutForm from './src/components/CheckoutForm';
 import MessageDisplay from './src/components/MessageDisplay';
-import './src/firebase/firebase';
+import './src/config/firebase';
 import store from './src/redux/store';
 import BuywashScreen from './src/screens/BuywashScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
@@ -22,6 +22,7 @@ import StationPage from './src/screens/StationPage';
 // Redux actions and helpers
 import messaging from '@react-native-firebase/messaging';
 import BottomTabs from './src/components/BottomTabs';
+import { SocketProvider } from './src/config/SocketProvider';
 import { getUserCars } from './src/redux/actions/carActions';
 import { RootStackParamList } from './src/redux/types/stackParams';
 import QrScreen from './src/screens/QrScreen';
@@ -51,7 +52,6 @@ function AppContent() {
   const [isRestoring, setIsRestoring] = useState(true);
 
   // ✅ 1. Handle Foreground Notifications
-  // This was outside the component before, which caused the crash!
   useEffect(() => {
     const unsubscribe = messaging().onMessage(async remoteMessage => {
       Alert.alert(
@@ -87,6 +87,7 @@ function AppContent() {
 
   return (
     <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="zeriab.com.zcare">
+             <SocketProvider>
         <MessageDisplay />
         <NavigationContainer>
           <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -103,6 +104,7 @@ function AppContent() {
             <RootStack.Screen name="QrScreen" component={QrScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
+        </SocketProvider>
     </StripeProvider>
   );
 }

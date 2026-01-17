@@ -50,7 +50,7 @@ const CheckoutScreen = ({ route }: { route: any }) => {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Confirm Your Payment</Text>
         <Text style={styles.cardText}>
-          Payment Amount: <Text style={styles.amount}>${pi?.amount || '0.00'}</Text>
+          Payment Amount: <Text style={styles.amount}>€{pi?.amount || '0.00'}</Text>
         </Text>
 
         <TouchableOpacity

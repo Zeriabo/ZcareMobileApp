@@ -1,7 +1,6 @@
 import {
-  FETCH_STATIONS_REQUEST,
-  FETCH_STATIONS_SUCCESS,
   FETCH_STATIONS_FAILURE,
+  FETCH_STATIONS_SUCCESS
 } from '../types/stationsActionTypes';
 
 interface Station {
@@ -11,7 +10,7 @@ interface Station {
   media: string;
 }
 
-interface StationsState {
+export interface StationsState {
   stations: Station[];
   error: string | null;
 }

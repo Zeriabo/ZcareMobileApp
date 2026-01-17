@@ -51,9 +51,18 @@ const QrScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <QRCode value={qrCode} size={250} />
 
-      <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-        <Text style={styles.backText}>Back</Text>
-      </Pressable>
+    <Pressable
+  onPress={() =>
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
+    })
+  }
+  style={styles.backBtn}
+>
+  <Text style={styles.backText}>Go to Home</Text>
+</Pressable>
+
     </View>
   );
 };

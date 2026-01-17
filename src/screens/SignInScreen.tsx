@@ -1,9 +1,10 @@
-import messaging from '@react-native-firebase/messaging'; // Import Firebase Messaging
 import React, { useEffect, useState } from 'react';
-import { Alert, ImageBackground, StyleSheet, View } from 'react-native';
+import { ImageBackground, StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { signIn } from '../redux/actions/AuthActions';
+
+const NOTIFICATION_CHANNEL_ID = 'zcare_updates';
 
 const SignInScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState('');
@@ -14,48 +15,17 @@ const SignInScreen = ({ navigation }: any) => {
   const user = useSelector((state: any) => state.user.user);
   const error = useSelector((state: any) => state.user.error);
 
-  // 1. ✅ Request Notification Permissions & Handle Foreground Messages
-  useEffect(() => {
-    const setupNotifications = async () => {
-      // Request permission (Required for iOS and Android 13+)
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-      if (enabled) {
-        console.log('Authorization status:', authStatus);
-      }
-    };
-
-    setupNotifications();
-
-    // Listen for messages while the app is in the FOREGROUND
-    const unsubscribe = messaging().onMessage(async remoteMessage => {
-      Alert.alert(
-        remoteMessage.notification?.title || 'Notification',
-        remoteMessage.notification?.body || 'You have a new update.'
-      );
+useEffect(() => {
+  if (user?.id) {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
     });
+  }
+}, [user, navigation]);
 
-    return unsubscribe;
-  }, []);
-
-  // 2. ✅ Navigate to MainTabs after successful login
   useEffect(() => {
-    if (user && user.id !== undefined) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs' }],
-      });
-    }
-  }, [user, navigation]);
-
-  // 3. ✅ Show snackbar if there is a login error
-  useEffect(() => {
-    if (error) {
-      setSnackbarVisible(true);
-    }
+    if (error) setSnackbarVisible(true);  
   }, [error]);
 
   const handleSignIn = () => {
@@ -64,7 +34,7 @@ const SignInScreen = ({ navigation }: any) => {
 
   return (
     <ImageBackground
-      source={{ uri: 'https://example.com/your-background-image.jpg' }} 
+      source={{ uri: 'https://example.com/your-background-image.jpg' }}
       style={styles.background}
       resizeMode="cover"
     >
@@ -81,6 +51,7 @@ const SignInScreen = ({ navigation }: any) => {
           left={<TextInput.Icon icon="account" />}
           style={styles.input}
         />
+
         <TextInput
           mode="outlined"
           label="Password"
@@ -93,9 +64,9 @@ const SignInScreen = ({ navigation }: any) => {
           style={styles.input}
         />
 
-        <Button 
-          mode="contained" 
-          onPress={handleSignIn} 
+        <Button
+          mode="contained"
+          onPress={handleSignIn}
           style={styles.button}
           buttonColor="#4F46E5"
         >
@@ -108,10 +79,7 @@ const SignInScreen = ({ navigation }: any) => {
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
           duration={3000}
-          action={{
-            label: 'Close',
-            onPress: () => setSnackbarVisible(false),
-          }}
+          action={{ label: 'Close', onPress: () => setSnackbarVisible(false) }}
         >
           {error || 'An error occurred. Please try again.'}
         </Snackbar>
@@ -121,11 +89,7 @@ const SignInScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  background: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 10,
@@ -137,13 +101,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
-  },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, color: '#333', textAlign: 'center' },
   input: { marginBottom: 15 },
   button: { marginTop: 10, paddingVertical: 5 },
   message: { color: 'green', marginTop: 10, textAlign: 'center' },

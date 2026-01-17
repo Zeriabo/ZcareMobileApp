@@ -24,10 +24,12 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [program, setProgram] = useState<any>({});
   const [paymentMethod, setPaymentMethod] = useState<string>('');
 
+  // Set program on mount
   useEffect(() => {
     setProgram({ ...selectedProgram });
   }, [selectedProgram]);
 
+  // Update selected payment method if paymentIntent exists
   useEffect(() => {
     if (pi && pi.paymentIntentId) {
       setPaymentMethod(pi.paymentMethod);
@@ -36,12 +38,14 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [pi]);
 
+  // Handle payment method selection
   const handlePaymentMethodSelection = (method: string) => {
     setPaymentMethod(method);
     dispatch(create_paymentIntent(selectedProgram, method));
     navigation.navigate('CheckoutForm', { program: selectedProgram });
   };
 
+  // Hide header
   React.useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -49,7 +53,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <ScrollView style={styles.scrollContainer}>
       <View style={styles.container}>
-        {/* Header with Back Button */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -60,11 +64,11 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.headerTitle}>{program.name}</Text>
         </View>
 
-        {/* Program Details Card */}
+        {/* Program Card */}
         <View style={styles.card}>
           <Text style={styles.programType}>{program.programType}</Text>
           <Text style={styles.description}>{program.name}</Text>
-          <Text style={styles.price}>${program.price}</Text>
+          <Text style={styles.price}>€{program.price}</Text>
 
           {user ? (
             <Button

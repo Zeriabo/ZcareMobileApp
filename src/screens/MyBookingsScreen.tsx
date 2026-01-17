@@ -1,39 +1,48 @@
-import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
 
 const { width } = Dimensions.get('window');
 
 const MyBookingsScreen: React.FC = () => {
-  // Filter for all active (not executed) bookings
-  const bookings = useSelector((state: RootState) => 
+  const dispatch = useDispatch<any>();
+  const userState = useSelector((state: RootState) => state.user.user);
+  const bookings = useSelector((state: RootState) =>
     state.booking.bookings.filter(b => !b.executed)
+  );
+
+  const [loading, setLoading] = useState(true);
+
+  // Fetch bookings every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userState?.token) {
+        setLoading(true);
+        dispatch(fetchUserBookings(userState.token)).finally(() => setLoading(false));
+      }
+    }, [dispatch, userState])
   );
 
   const renderBookingItem = ({ item }: { item: any }) => (
     <View style={styles.bookingCard}>
       <Text style={styles.cardTitle}>Wash Ticket</Text>
-      
       <View style={styles.qrContainer}>
-        {/* Use a fallback if qr_code is missing to prevent crash */}
-        <QRCode 
-          value={item.qr_code || item.qrCode || 'No Data'} 
-          size={180} 
-          backgroundColor="white"
-        />
+        <QRCode value={item.qr_code || item.qrCode || 'No Data'} size={180} backgroundColor="white" />
       </View>
-
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Booking ID</Text>
-          <Text style={styles.value}>#{item.id}</Text>
+          <Text style={styles.label}>Station</Text>
+          <Text style={styles.value}>{item.stationName}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Vehicle ID</Text>
-          <Text style={styles.value}>{item.carId}</Text>
+          <Text style={styles.label}>Vehicle registration</Text>
+          <Text style={styles.value}>{item.carRegistrationPlate}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
@@ -43,7 +52,24 @@ const MyBookingsScreen: React.FC = () => {
     </View>
   );
 
-  if (bookings.length === 0) {
+  // Skeleton Loader
+  const BookingSkeleton = () => (
+    <SkeletonPlaceholder>
+      {[...Array(3)].map((_, i) => (
+        <View key={i} style={styles.bookingCard}>
+          <View style={{ width: 120, height: 20, borderRadius: 4, marginBottom: 15 }} />
+          <View style={{ width: 180, height: 180, borderRadius: 12, backgroundColor: '#E0E0E0', marginBottom: 15 }} />
+          <View style={{ width: '100%', height: 15, borderRadius: 4, marginBottom: 8 }} />
+          <View style={{ width: '60%', height: 15, borderRadius: 4, marginBottom: 8 }} />
+          <View style={{ width: '80%', height: 15, borderRadius: 4 }} />
+        </View>
+      ))}
+    </SkeletonPlaceholder>
+  );
+
+  if (loading) return <BookingSkeleton />;
+
+  if (!bookings.length) {
     return (
       <View style={styles.center}>
         <Text style={styles.message}>No active bookings found</Text>
@@ -57,10 +83,9 @@ const MyBookingsScreen: React.FC = () => {
         <Text style={styles.headerTitle}>My Wash Tickets</Text>
         <Text style={styles.headerSubtitle}>{bookings.length} active codes</Text>
       </View>
-
       <FlatList
         data={bookings}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
         renderItem={renderBookingItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -81,12 +106,10 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 25,
     alignItems: 'center',
-    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 15,
-    // Elevation for Android
     elevation: 5,
   },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#8E8E93', marginBottom: 15, textTransform: 'uppercase' },
