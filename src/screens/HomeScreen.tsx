@@ -9,6 +9,7 @@ import { fetchBookings } from '../redux/actions/BookingActions';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
+import { calculateDistanceKm } from '../utils/calulations';
 
 interface Props {
   navigation: NavigationScreenProp<NavigationRoute>;
@@ -123,26 +124,40 @@ setUserCoords({
   </View>
 </View>
 
-<MapView style={styles.map} initialRegion={initialRegion}>
+<MapView style={styles.map} showsUserLocation initialRegion={initialRegion}>
   {serviceType === 'wash' &&
-    stations.map(station => (
-      <Marker
-        key={station.id}
-        coordinate={{
-          latitude: station.latitude,
-          longitude: station.longitude,
-        }}
-        title={station.name}
-        description={station.address}
-        onPress={() => handleStationClick(station)}
-      >
-        <Image source={markerIcon} style={{ width: 30, height: 30 }} />
-      </Marker>
-    ))}
+    stations.map((station) => {
+      const distance =
+        userCoords &&
+        calculateDistanceKm(
+          userCoords.latitude,
+          userCoords.longitude,
+          station.latitude,
+          station.longitude
+        ).toFixed(1); // distance in km
+
+      return (
+        <Marker
+          key={station.id}
+          coordinate={{
+            latitude: station.latitude,
+            longitude: station.longitude,
+          }}
+          title={station.name}
+          description={
+            distance
+              ? `${station.address} - ${distance} km away`
+              : station.address
+          }
+          onPress={() => handleStationClick(station)}
+        >
+          <Image source={markerIcon} style={{ width: 30, height: 30 }} />
+        </Marker>
+      );
+    })}
 
   {serviceType === 'repair' &&
-    /* later replace with repairShops */
-    stations.map(station => (
+    stations.map((station) => (
       <Marker
         key={`repair-${station.id}`}
         coordinate={{
@@ -153,6 +168,7 @@ setUserCoords({
       />
     ))}
 </MapView>
+
 
     </View>
   );
