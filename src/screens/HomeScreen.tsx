@@ -14,6 +14,7 @@ interface Props {
   navigation: NavigationScreenProp<NavigationRoute>;
 }
 
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useDispatch();
   const stations: Station[] = useSelector<RootState, Station[]>(
@@ -23,6 +24,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [initialRegion, setInitialRegion] = useState<Region | null>(null);
   const [loading, setLoading] = useState(true);
   const [serviceType, setServiceType] = useState<'wash' | 'repair'>('wash');
+  const [userCoords, setUserCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const getCurrentLocation = async () => {
     try {
@@ -39,7 +44,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
+setUserCoords({
+  latitude: location.coords.latitude,
+  longitude: location.coords.longitude,
+});
       setInitialRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,

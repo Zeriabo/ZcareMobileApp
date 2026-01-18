@@ -1,7 +1,7 @@
 import axios from 'axios';
-import {Dispatch} from 'redux';
-import {addMessage, clearMessages} from './messageActions';
+import { Dispatch } from 'redux';
 import Car from '../types/CarType';
+import { addMessage, clearMessages } from './messageActions';
 
 // Action types
 export const REGISTER_CAR_SUCCESS = 'REGISTER_CAR_SUCCESS';
@@ -144,9 +144,17 @@ export const setCarOwner = (userCar: any) => {
 export const deleteCar = (userCar: any) => {
   return async (dispatch: Dispatch<any>) => {
     try {
-      const response = await axios.post(
-        process.env.EXPO_PUBLIC_SERVER_URL + '/cars/delete',
-        userCar.carToRemove,
+      const response = await axios.delete(
+        `${process.env.EXPO_PUBLIC_SERVER_URL}/cars/delete`,
+        {
+          data: {
+            carId: userCar.carId,
+            token: userCar.token,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
       );
       if (response.status === 202) {
         // Car deleted successfully

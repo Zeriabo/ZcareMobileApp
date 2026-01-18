@@ -2,6 +2,8 @@ import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import {
+  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,7 +24,16 @@ interface Props {
   route: StationPageRouteProp;
   navigation: StationPageNavigationProp;
 }
+const openNavigation = (lat: number, lng: number) => {
+  const url = Platform.select({
+    ios: `maps://?q=${lat},${lng}`,
+    android: `google.navigation:q=${lat},${lng}`,
+  });
 
+  if (url) {
+    Linking.openURL(url);
+  }
+};
 const StationPage: React.FC<Props> = ({ route, navigation }) => {
   const { station } = route.params;
   const dispatch = useDispatch();
@@ -58,9 +69,17 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Station Info */}
-        <View style={styles.stationCard}>
-          <Text style={styles.stationAddress}>{station.address}</Text>
-        </View>
+      <View style={styles.stationCard}>
+  <Text style={styles.stationAddress}>{station.address}</Text>
+
+  {/* Navigate Button */}
+  <TouchableOpacity
+    style={styles.navigateButton}
+    onPress={() => openNavigation(station.latitude, station.longitude)}
+  >
+    <Text style={styles.navigateText}>Navigate</Text>
+  </TouchableOpacity>
+</View>
 
         {/* Programs List */}
         <Text style={styles.sectionTitle}>Available Programs</Text>
@@ -171,6 +190,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
+  navigateButton: {
+  marginTop: 12,
+  backgroundColor: '#4F46E5',
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: 'center',
+},
+
+navigateText: {
+  color: '#fff',
+  fontWeight: '600',
+  fontSize: 16,
+  textAlign: 'center',
+},
+
 });
 
 export default StationPage;
