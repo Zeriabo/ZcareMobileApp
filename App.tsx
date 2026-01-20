@@ -21,6 +21,7 @@ import StationPage from './src/screens/StationPage';
 
 // Redux actions and helpers
 import messaging from '@react-native-firebase/messaging';
+import AddCar from './src/components/AddCar';
 import BottomTabs from './src/components/BottomTabs';
 import { SocketProvider } from './src/config/SocketProvider';
 import { getUserCars } from './src/redux/actions/carActions';
@@ -102,6 +103,8 @@ function AppContent() {
             <RootStack.Screen name="PaymentConfirmation" component={PaymentConfirmation} />
             <RootStack.Screen name="CheckoutForm" component={CheckoutForm} />
             <RootStack.Screen name="QrScreen" component={QrScreen} />
+            <RootStack.Screen name="AddCar" component={AddCar} />
+      
           </RootStack.Navigator>
         </NavigationContainer>
         </SocketProvider>
