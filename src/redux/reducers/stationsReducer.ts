@@ -12,8 +12,10 @@ interface Station {
 
 export interface StationsState {
   stations: Station[];
+  selectedStation?: Station; 
   error: string | null;
 }
+
 
 const initialState: StationsState = {
   stations: [],

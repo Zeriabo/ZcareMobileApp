@@ -20,6 +20,11 @@ interface FetchStationsFailureAction {
   type: typeof FETCH_STATIONS_FAILURE;
   error: string;
 }
+interface Media {
+  logo?: string;    
+  picture?: string; 
+}
+
 export type ProgramsAction =
   | FetchProgramsRequestAction
   | FetchProgramsSuccessAction
@@ -34,7 +39,7 @@ export interface Station {
   id: string;
   name: string;
   address: string;
-  media: string;
+  media?: Media;
 }
 
 interface StationsState {
