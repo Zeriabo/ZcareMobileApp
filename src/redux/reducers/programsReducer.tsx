@@ -1,11 +1,11 @@
 import {
+  CarWashingProgram,
+  FETCH_PROGRAMS_FAILURE,
   FETCH_PROGRAMS_REQUEST,
   FETCH_PROGRAMS_SUCCESS,
-  FETCH_PROGRAMS_FAILURE,
-  CarWashingProgram,
 } from '../types/stationsActionTypes';
 
-interface ProgramsState {
+export interface ProgramsState {
   programs: CarWashingProgram[];
   loading: boolean;
   error: string | null;

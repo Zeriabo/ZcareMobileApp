@@ -48,6 +48,25 @@ export const fetchBookings = () => {
     }
   };
 };
+export const fetchUserBookings = (token: string) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_SERVER_URL}/booking/user/token`,
+        token, 
+        {
+          headers: {
+            'Content-Type': 'text/plain', 
+          },
+        }
+      );
+
+      dispatch({ type: 'SET_BOOKINGS', payload: response.data });
+    } catch (error: any) {
+      console.error('Error fetching user bookings:', error);
+    }
+  };
+};
 
 export const fetchBooking = (bookingId: any) => {
   return async (dispatch: any) => {

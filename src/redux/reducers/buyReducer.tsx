@@ -1,39 +1,26 @@
-const initialState = {
-  washes: [], // Initial washes state
+import { BuyState } from "../types/RootState";
+
+
+
+const initialState: BuyState = {
+  washes: [],
   pi: null,
 };
 
-const buyReducer = (
-  state = initialState,
-  action: {
-    [x: string]: any;
-    type: any;
-    program: any;
-  },
-) => {
-  console.log('Current state:', state);
-  console.log('Action:', action); 
-  switch (action.type) {   
+const buyReducer = (state: BuyState = initialState, action: any): BuyState => {
+  switch (action.type) {
     case 'BUY_WASH':
       return {
         ...state,
         washes: [...state.washes, action.program],
-      };
-    case 'CHECKOUT_SUCCESS':
-      return {
-        // ...state,
-        // washes: [...state.washes]
-      };
-    case 'CHECKOUT_FAILED':
-      return {
-        ...state,
       };
     case 'PAYMENT_INTENT_SUCCESS':
       return {
         ...state,
         pi: action.payload,
       };
-
+    case 'CHECKOUT_SUCCESS':
+    case 'CHECKOUT_FAILED':
     default:
       return state;
   }

@@ -1,40 +1,14 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Avatar, Button, Card } from 'react-native-paper';
+import { Avatar, IconButton } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import { signOut } from '../redux/actions/AuthActions';
-import { deleteCar, getUserCars } from '../redux/actions/carActions';
 import { RootState } from '../redux/store';
+import MyCars from './MyCars';
 
 export default function ProfileScreen({ navigation }: any) {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.user.user);
-  const cars = useSelector((state: RootState) => state.cars.cars);
-
-  useEffect(() => {
-    if (user?.token) {
-      dispatch(getUserCars(user.token));
-    }
-  }, [dispatch, user]);
-
-  const handleRemoveCar = (car: any) => {
-    Alert.alert(
-      'Confirm Delete',
-      `Are you sure you want to delete ${car.manufacture} ${car.registrationPlate}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            dispatch(deleteCar({ carId: car.carId, token: user.token }));
-            dispatch(getUserCars(user.token)); // refresh after delete
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -46,68 +20,50 @@ export default function ProfileScreen({ navigation }: any) {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await dispatch(signOut());
+             dispatch(signOut());
             navigation.reset({
               index: 0,
-              routes: [{ name: 'SignIn' }], // redirect to SignIn
+              routes: [{ name: 'SignIn' }],
             });
           },
         },
       ],
-      { cancelable: true }
     );
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 20 }}>
-      {/* User Info */}
-   <View style={styles.profileHeader}>
+      {/* Profile Header */}
+     <View style={styles.profileHeader}>
   <Avatar.Text
     size={64}
     label={user?.firstName?.[0]?.toUpperCase() || '?'}
   />
-  <View style={{ marginLeft: 20 }}>
-    <Text style={styles.name}>{user?.firstName} {user?.lastName}</Text>
+
+  <View style={styles.profileInfo}>
+    <View style={styles.nameRow}>
+      <Text style={styles.name}>
+        {user?.firstName} {user?.lastName}
+      </Text>
+
+
+      <IconButton
+        icon="logout"
+        size={22}
+        onPress={handleSignOut}
+        iconColor="#EF4444"
+      />
+    </View>
+
     <Text style={styles.username}>@{user?.username}</Text>
-    <Text style={styles.email}>{user?.email || 'No email provided'}</Text>
+    <Text style={styles.email}>{user?.email}</Text>
   </View>
 </View>
 
 
-      <Text style={styles.sectionTitle}>My Cars</Text>
+      <MyCars />
 
-      {cars.length === 0 ? (
-        <Text style={styles.noCarsText}>You haven't registered any cars yet.</Text>
-      ) : (
-        cars.map((car: any) => (
-          <Card key={car.carId} style={styles.card}>
-            <Card.Content>
-              <Text style={styles.carTitle}>
-                {car.manufacture} - {car.registrationPlate}
-              </Text>
-              <Text style={styles.carInfo}>Manufactured: {car.dateOfManufacture}</Text>
-            </Card.Content>
-            <Card.Actions>
-              <Button
-                mode="outlined"
-                onPress={() => handleRemoveCar(car)}
-                textColor="#EF4444"
-              >
-                Remove
-              </Button>
-            </Card.Actions>
-          </Card>
-        ))
-      )}
-
-      <Button
-        mode="contained"
-        style={{ marginTop: 20 }}
-        onPress={handleSignOut}
-        buttonColor="#EF4444"
-      >
-        Sign Out
-      </Button>
+     
     </ScrollView>
   );
 }
@@ -123,4 +79,17 @@ const styles = StyleSheet.create({
   card: { marginBottom: 16, borderRadius: 8, elevation: 2, backgroundColor: '#fff' },
   carTitle: { fontSize: 18, fontWeight: 'bold' },
   carInfo: { fontSize: 14, color: 'gray', marginTop: 4 },
+  profileInfo: {
+  marginLeft: 20,
+  flex: 1,
+},
+
+nameRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+},
+
+
+
 });

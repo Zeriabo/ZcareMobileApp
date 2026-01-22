@@ -1,7 +1,6 @@
-import {Action} from 'redux';
-import {SELECT_STATION} from '../actions/stationActions';
+import { SELECT_STATION } from '../actions/stationActions';
 
-interface StationState {
+export interface StationState {
   selectedStationId: string | null;
 }
 const initialState: StationState = {

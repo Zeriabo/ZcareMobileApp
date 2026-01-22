@@ -1,8 +1,5 @@
-import {useDispatch} from 'react-redux';
-import Car from '../types/CarType';
-import {getUserCars} from '../actions/carActions';
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   error: any;
   registrationSuccess: boolean;
@@ -28,7 +25,18 @@ interface Action {
 }
 
 const initialState: AuthState = {
-  user: null,
+  user: {
+    id: 0,
+    firstName: '',
+    lastName: '',
+    username: '',
+    token: '',
+    active: false,
+    dateOfBirth: '',
+    createDateTime: null,
+    updateDateTime: null,
+    deviceRegistrationToken: null,
+  },
   error: null,
   registrationSuccess: false,
   registrationFailed: false,
@@ -36,7 +44,7 @@ const initialState: AuthState = {
   authenticationFailed: false,
 };
 
-const authReducer = (state = initialState, action: Action): AuthState => {
+const authReducer = (state: AuthState | undefined = initialState, action: Action): AuthState => {
   switch (action.type) {
     case 'SIGN_IN_SUCCESS':
       return {
@@ -54,9 +62,9 @@ const authReducer = (state = initialState, action: Action): AuthState => {
         authenticationSuccess: false,
         authenticationFailed: true,
       };
-     case 'SIGN_OUT':
+    case 'SIGN_OUT':
       return {
-        ...initialState, 
+        ...initialState,
       };
     case 'SIGN_UP_SUCCESS':
       return {
@@ -75,8 +83,9 @@ const authReducer = (state = initialState, action: Action): AuthState => {
         registrationFailed: true,
       };
     default:
-      return state;
+      return state!;
   }
 };
+
 
 export default authReducer;

@@ -1,13 +1,13 @@
 import {
-  REGISTER_CAR_SUCCESS,
+  DELETE_CAR_SUCCESS,
   GET_CAR_SUCCESS,
   GET_USER_CARS_SUCCESS,
+  REGISTER_CAR_SUCCESS,
   SET_CAR_OWNER_SUCCESS,
-  DELETE_CAR_SUCCESS,
 } from '../actions/carActions';
 import Car from '../types/CarType';
 
-interface CarState {
+export interface CarState {
   cars: Car[];
 }
 

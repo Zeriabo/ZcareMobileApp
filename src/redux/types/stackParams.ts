@@ -12,4 +12,5 @@ export type RootStackParamList = {
   QrScreen: undefined;
   SignIn: undefined;
   SignUp:undefined;
+  AddCar:undefined;
 };

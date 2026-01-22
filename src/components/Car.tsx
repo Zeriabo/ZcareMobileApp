@@ -1,12 +1,12 @@
 import React from 'react';
-import {StyleSheet, Text, View, TouchableOpacity} from 'react-native'; // Import TouchableOpacity
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // Import TouchableOpacity
 
 interface CarProps {
   car: {
     registerationPlate: string;
     manufacture: string;
   };
-  onRemove: () => void; // Add a callback prop for removing the car
+  onRemove: () => void; 
 }
 
 const Car: React.FC<CarProps> = ({car, onRemove}) => {

@@ -1,9 +1,9 @@
 // bookingReducer.ts
 
-import {Booking} from '../types/bookingTypes'; // Import your booking type
+import { Booking } from '../types/bookingTypes'; // Import your booking type
 
 // Define the state interface
-interface BookingState {
+export interface BookingState {
   bookings: Booking[];
   selectedBooking: Booking | null;
 }
@@ -16,7 +16,11 @@ const initialState: BookingState = {
 
 // Reducer function
 const bookingReducer = (state = initialState, action: any): BookingState => {
+      console.log(action)
   switch (action.type) {
+
+    case 'FETCH_BOOKINGS_SUCCESS':
+      return { ...state, bookings: action.payload };
     case 'SET_BOOKINGS':
       return {
         ...state,

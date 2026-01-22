@@ -1,17 +1,25 @@
-import { configureStore } from '@reduxjs/toolkit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
+import { PersistConfig, persistReducer, persistStore } from 'redux-persist';
 
-import stationsReducer from './reducers/stationsReducer';
 import authReducer from './reducers/authReducer';
-import messageReducer from './reducers/messagereducer';
-import buyReducer from './reducers/buyReducer';
 import bookingReducer from './reducers/bookingReducer';
+import buyReducer from './reducers/buyReducer';
 import carReducer from './reducers/carReducer';
-import stationReducer from './reducers/stationReducer';
-import washesReducer from './reducers/washesReducer';
+import messageReducer from './reducers/messagereducer';
 import { programsReducer } from './reducers/programsReducer';
+import stationReducer from './reducers/stationReducer';
+import stationsReducer from './reducers/stationsReducer';
+import washesReducer from './reducers/washesReducer';
+import { RootState } from './types/RootState';
 
-// Combine reducers
-const rootReducer = {
+const persistConfig: PersistConfig<RootState> = {
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['user'], 
+};
+
+const rootReducer:any = combineReducers({
   user: authReducer,
   stations: stationsReducer,
   messages: messageReducer,
@@ -21,18 +29,21 @@ const rootReducer = {
   station: stationReducer,
   washes: washesReducer,
   programsState: programsReducer,
-};
+});
 
-// Create store with Redux Toolkit
+const persistedReducer = persistReducer<RootState>(persistConfig, rootReducer);
+
 export const store = configureStore({
-  reducer: rootReducer,
-  // Middleware default includes thunk, so no need to add it manually
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }),
   devTools: true,
 });
 
-// TypeScript typings
-export type RootState = ReturnType<typeof store.getState>;
+export const persistor = persistStore(store);
 export type AppDispatch = typeof store.dispatch;
+export type RootStateType = RootState;
 
 export default store;

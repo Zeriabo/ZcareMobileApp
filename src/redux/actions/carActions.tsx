@@ -1,7 +1,7 @@
 import axios from 'axios';
-import {Dispatch} from 'redux';
-import {addMessage, clearMessages} from './messageActions';
+import { Dispatch } from 'redux';
 import Car from '../types/CarType';
+import { addMessage, clearMessages } from './messageActions';
 
 // Action types
 export const REGISTER_CAR_SUCCESS = 'REGISTER_CAR_SUCCESS';
@@ -29,7 +29,7 @@ export const getUserCarsSuccess = (cars: Car[]) => ({
 export const setCarOwnerSuccess = () => ({
   type: SET_CAR_OWNER_SUCCESS,
 });
-export const deleteCarSuccess = (carId: number) => ({
+export const deleteCarSuccess = (carId: Number) => ({
   type: DELETE_CAR_SUCCESS,
   payload: carId,
 });
@@ -140,50 +140,57 @@ export const setCarOwner = (userCar: any) => {
     }
   };
 };
-// {"car": {"carId": 1, "createDateTime": [2023, 6, 12, 22, 28, 36, 652285000], "dateOfManufacture": 567986400000, "manufacture": "Honda", "registerationPlate": "ABC123", "updateDateTime": [2023, 6, 12, 22, 28, 36, 652297000]}}
-export const deleteCar = (userCar: any) => {
-  return async (dispatch: Dispatch<any>) => {
+export const deleteCar = (payload: { carId: number; token: string }) => {
+  console.log("Deleting car:", payload);
+
+  return async (dispatch: any) => {
     try {
-      const response = await axios.post(
-        process.env.EXPO_PUBLIC_SERVER_URL + '/cars/delete',
-        userCar.carToRemove,
+      const response = await axios.delete(
+        `${process.env.EXPO_PUBLIC_SERVER_URL}/cars/`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            carId: payload.carId,
+            token: payload.token,
+          },
+        }
       );
+
       if (response.status === 202) {
-        // Car deleted successfully
-        dispatch(deleteCarSuccess(userCar.carToRemove.carId));
+        dispatch(deleteCarSuccess(payload.carId));
+
+        // ✅ Dispatch proper message object
         dispatch(
           addMessage({
-            id: 1,
+            id: Date.now(),
             text: 'Car deleted successfully',
             status: 200,
-          }),
+          })
         );
-        setTimeout(() => {
-          dispatch(clearMessages());
-        }, 2000);
+
+        // Refresh user cars
+        dispatch(getUserCars(payload.token));
       } else {
         dispatch(
           addMessage({
-            id: 1,
+            id: Date.now(),
             text: 'Car deletion failed',
             status: 500,
-          }),
+          })
         );
-        setTimeout(() => {
-          dispatch(clearMessages());
-        }, 2000);
       }
-    } catch (error) {
+
+      setTimeout(() => dispatch(clearMessages()), 2000);
+    } catch (error: any) {
+      console.error('Delete Car Error:', error.toJSON?.() || error);
       dispatch(
         addMessage({
-          id: 1,
-          text: 'An error occurred',
+          id: Date.now(),
+          text: 'An error occurred while deleting the car',
           status: 0,
-        }),
+        })
       );
-      setTimeout(() => {
-        dispatch(clearMessages());
-      }, 2000);
+      setTimeout(() => dispatch(clearMessages()), 2000);
     }
   };
 };

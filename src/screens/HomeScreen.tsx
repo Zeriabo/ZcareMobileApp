@@ -9,10 +9,13 @@ import { fetchBookings } from '../redux/actions/BookingActions';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
+import { calculateDistanceKm } from '../utils/calulations';
+import { resolveMediaUrl } from '../utils/media';
 
 interface Props {
   navigation: NavigationScreenProp<NavigationRoute>;
 }
+
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -23,6 +26,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [initialRegion, setInitialRegion] = useState<Region | null>(null);
   const [loading, setLoading] = useState(true);
   const [serviceType, setServiceType] = useState<'wash' | 'repair'>('wash');
+  const [userCoords, setUserCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const getCurrentLocation = async () => {
     try {
@@ -39,7 +46,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
+setUserCoords({
+  latitude: location.coords.latitude,
+  longitude: location.coords.longitude,
+});
       setInitialRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -115,26 +125,53 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   </View>
 </View>
 
-<MapView style={styles.map} initialRegion={initialRegion}>
+<MapView style={styles.map} showsUserLocation initialRegion={initialRegion}>
   {serviceType === 'wash' &&
-    stations.map(station => (
-      <Marker
-        key={station.id}
-        coordinate={{
-          latitude: station.latitude,
-          longitude: station.longitude,
-        }}
-        title={station.name}
-        description={station.address}
-        onPress={() => handleStationClick(station)}
-      >
-        <Image source={markerIcon} style={{ width: 30, height: 30 }} />
-      </Marker>
-    ))}
+    stations.map((station) => {
+      const distance =
+        userCoords &&
+        calculateDistanceKm(
+          userCoords.latitude,
+          userCoords.longitude,
+          station.latitude,
+          station.longitude
+        ).toFixed(1); // distance in km
+
+      return (
+        <Marker
+          key={station.id}
+          coordinate={{
+            latitude: station.latitude,
+            longitude: station.longitude,
+          }}
+          title={station.name}
+          description={
+            distance
+              ? `${station.address} - ${distance} km away`
+              : station.address
+          }
+          onPress={() => handleStationClick(station)}
+        >
+            <Image
+    source={
+      station.media?.logo
+        ? { uri: resolveMediaUrl(station.media.logo) }
+        : markerIcon
+    }
+    style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      borderWidth: 2,
+      borderColor: '#fff',
+      backgroundColor: '#fff',
+    }} />
+        </Marker>
+      );
+    })}
 
   {serviceType === 'repair' &&
-    /* later replace with repairShops */
-    stations.map(station => (
+    stations.map((station) => (
       <Marker
         key={`repair-${station.id}`}
         coordinate={{
@@ -145,6 +182,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       />
     ))}
 </MapView>
+
 
     </View>
   );

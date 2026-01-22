@@ -122,7 +122,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             </View>
 
             <View style={styles.priceContainer}>
-              <Text style={styles.currency}>$</Text>
+              <Text style={styles.currency}>€</Text>
               <Text style={styles.priceText}>{route.params?.program?.price || '0.00'}</Text>
             </View>
 

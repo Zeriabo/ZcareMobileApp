@@ -22,7 +22,7 @@ await displayLocalNotification(
           `Welcome, ${response.data.firstName || 'User'}!`
         );
 
-  await saveSession(response.data.token);
+await saveSession(response.data); 
 
 
   dispatch({ type: 'SIGN_IN_SUCCESS', payload: response.data });

@@ -1,26 +1,27 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
-import { RootState } from '../redux/store';
+
 import { Message } from '../redux/types/messageActionTypes';
+import { RootState } from '../redux/types/RootState';
 
 const MessageDisplay = () => {
-  const messages: Message[] = useSelector((state: RootState) => state.messages);
-  console.log("messages");
-  console.log(messages);
-  if (messages.length === 0) {
-    return null; // Return null to render nothing if there are no messages
-  }
 
+  const messages: Message[] = useSelector((state: RootState) => state.messages);
+
+   console.log("messages", messages);
+
+  console.log("this is the message: "+messages[0]);
+    if (!messages || messages.length === 0) return null;
   const message = messages[messages.length - 1];
-  console.log( message);
+console.log("Last message:", message);
   return (
     <View
       style={[
         styles.container,
         message.status === 500 ? styles.errorContainer : null,
       ]}>
-     <Text style={styles.messageText}>{message.text}</Text>
+     <Text style={styles.messageText}>{message}</Text>
 
     </View>
   );
