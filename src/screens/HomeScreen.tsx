@@ -10,6 +10,7 @@ import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
 import { calculateDistanceKm } from '../utils/calulations';
+import { resolveMediaUrl } from '../utils/media';
 
 interface Props {
   navigation: NavigationScreenProp<NavigationRoute>;
@@ -151,7 +152,20 @@ setUserCoords({
           }
           onPress={() => handleStationClick(station)}
         >
-          <Image source={markerIcon} style={{ width: 30, height: 30 }} />
+            <Image
+    source={
+      station.media?.logo
+        ? { uri: resolveMediaUrl(station.media.logo) }
+        : markerIcon
+    }
+    style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      borderWidth: 2,
+      borderColor: '#fff',
+      backgroundColor: '#fff',
+    }} />
         </Marker>
       );
     })}

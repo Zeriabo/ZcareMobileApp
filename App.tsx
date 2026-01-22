@@ -52,7 +52,6 @@ function AppContent() {
   const dispatch = useDispatch();
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // ✅ 1. Handle Foreground Notifications
   useEffect(() => {
     const unsubscribe = messaging().onMessage(async remoteMessage => {
       Alert.alert(
