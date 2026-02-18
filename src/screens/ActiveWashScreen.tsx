@@ -1,11 +1,8 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import LottieView from 'lottie-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootStackParamList } from '../redux/types/stackParams';
-
-const carWashAnimation = require('../assets/animations/car_wash.json');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWash'>;
 
@@ -57,7 +54,12 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
       </Text>
       <Text style={styles.subTitle}>Booking #{bookingId}</Text>
 
-      <LottieView source={carWashAnimation} autoPlay loop={!isDone} style={styles.animation} />
+      <View style={styles.animationFallback}>
+        <ActivityIndicator size="large" color="#2563EB" />
+        <Text style={styles.animationText}>
+          {isDone ? 'Finalizing...' : 'Live wash status tracking'}
+        </Text>
+      </View>
 
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -100,10 +102,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 14,
   },
-  animation: {
+  animationFallback: {
     width: 300,
-    height: 300,
+    height: 220,
     marginTop: 16,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  animationText: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+    fontSize: 14,
   },
   progressTrack: {
     width: '92%',
