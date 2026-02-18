@@ -40,6 +40,15 @@ const MyBookingsScreen: React.FC = () => {
       !!item.repairItemName ||
       !item.washingProgramId;
 
+    const statusLabel = String(item.status || (item.executed ? 'COMPLETED' : 'ACTIVE')).replaceAll('_', ' ');
+    const statusColor = (() => {
+      const s = String(item.status || '').toUpperCase();
+      if (s.includes('COMPLETE')) return '#16A34A';
+      if (s.includes('PROGRESS') || s.includes('START')) return '#2563EB';
+      if (s.includes('FAIL') || s.includes('CANCEL')) return '#DC2626';
+      return '#34C759';
+    })();
+
     const scheduledLabel = item.scheduledTime
       ? new Date(item.scheduledTime).toLocaleString()
       : 'Not scheduled';
@@ -130,7 +139,7 @@ const MyBookingsScreen: React.FC = () => {
         )}
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
-          <Text style={[styles.value, { color: '#34C759' }]}>Active</Text>
+          <Text style={[styles.value, { color: statusColor }]}>{statusLabel}</Text>
         </View>
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={handleCancel} disabled={processingId === item.id}>
