@@ -1,51 +1,85 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import axios from 'axios';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootStackParamList } from '../redux/types/stackParams';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWash'>;
 
 const normalizeStatus = (raw: any) => {
   const s = String(raw || '').toUpperCase();
-  if (!s) return 'ACTIVE';
+  if (!s) return 'PURCHASED';
   return s;
 };
 
 const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
   const { bookingId } = route.params;
+  const dispatch = useDispatch<any>();
   const booking = useSelector((state: any) =>
     (state.booking?.bookings || []).find((b: any) => Number(b?.id) === Number(bookingId))
   );
+  const [backendBooking, setBackendBooking] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const status = normalizeStatus(booking?.status || (booking?.executed ? 'COMPLETED' : 'ACTIVE'));
-  const [fallbackProgress, setFallbackProgress] = useState(8);
+  const readStatus = (source: any) =>
+    normalizeStatus(source?.status || (source?.executed ? 'FINISHED' : ''));
+  const status = readStatus(backendBooking) || readStatus(booking);
 
   useEffect(() => {
-    const done = status.includes('COMPLETED');
-    if (done) {
-      setFallbackProgress(100);
-      return;
-    }
+    let mounted = true;
 
-    const timer = setInterval(() => {
-      setFallbackProgress(prev => Math.min(prev + 2, 92));
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [status]);
+    const fetchBookingStatus = async () => {
+      const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
+      const noV1 = base.endsWith('/v1') ? base.slice(0, -3) : base;
+      const candidates = [
+        `${base}/booking/${bookingId}`,
+        `${base}/v1/bookings/${bookingId}`,
+        `${noV1}/v1/bookings/${bookingId}`,
+      ];
+
+      let lastError: any = null;
+      for (const url of candidates) {
+        try {
+          const response = await axios.get(url);
+          if (!mounted) return;
+          setBackendBooking(response.data || null);
+          setError(null);
+          setLoading(false);
+          dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
+          return;
+        } catch (e: any) {
+          lastError = e;
+          if (![404, 405].includes(e?.response?.status)) break;
+        }
+      }
+
+      if (mounted) {
+        setLoading(false);
+        setError(lastError?.response?.data?.message || lastError?.message || 'Could not fetch wash status');
+      }
+    };
+
+    fetchBookingStatus();
+    const timer = setInterval(fetchBookingStatus, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [bookingId, dispatch]);
 
   const progress = useMemo(() => {
-    if (typeof booking?.progress === 'number' && Number.isFinite(booking.progress)) {
-      return Math.max(0, Math.min(100, booking.progress));
-    }
-    if (status.includes('COMPLETED')) return 100;
-    if (status.includes('STARTED')) return Math.max(fallbackProgress, 15);
-    if (status.includes('IN_PROGRESS') || status.includes('WASHING')) return Math.max(fallbackProgress, 30);
-    return fallbackProgress;
-  }, [booking?.progress, status, fallbackProgress]);
+    const backendProgress = Number(backendBooking?.progress);
+    const bookingProgress = Number(booking?.progress);
+    if (Number.isFinite(backendProgress)) return Math.max(0, Math.min(100, backendProgress));
+    if (Number.isFinite(bookingProgress)) return Math.max(0, Math.min(100, bookingProgress));
+    if (status.includes('FINISHED')) return 100;
+    return null;
+  }, [backendBooking?.progress, booking?.progress, status]);
 
-  const isDone = status.includes('COMPLETED');
-  const isFailed = status.includes('FAILED') || status.includes('CANCELLED');
+  const isDone = status.includes('FINISHED');
+  const isFailed = status.includes('CANCELED') || status.includes('NOT_PURCHASED');
 
   return (
     <View style={styles.container}>
@@ -57,16 +91,23 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.animationFallback}>
         <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.animationText}>
-          {isDone ? 'Finalizing...' : 'Live wash status tracking'}
+          {loading ? 'Loading status from backend...' : isDone ? 'Finalizing...' : 'Live wash status from backend'}
         </Text>
       </View>
 
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress}%` }]} />
-      </View>
-      <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+      {typeof progress === 'number' ? (
+        <>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          </View>
+          <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+        </>
+      ) : (
+        <Text style={styles.progressUnknown}>Progress not provided by backend yet</Text>
+      )}
 
       <Text style={styles.statusText}>Status: {status.replaceAll('_', ' ')}</Text>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <Pressable
         onPress={() =>
@@ -135,12 +176,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1D4ED8',
   },
+  progressUnknown: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
   statusText: {
     marginTop: 10,
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
     textTransform: 'capitalize',
+  },
+  errorText: {
+    marginTop: 8,
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   homeBtn: {
     marginTop: 20,

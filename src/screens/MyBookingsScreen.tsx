@@ -41,18 +41,19 @@ const MyBookingsScreen: React.FC = () => {
       !!item.repairItemName ||
       !item.washingProgramId;
 
-    const statusLabel = String(item.status || (item.executed ? 'COMPLETED' : 'ACTIVE')).replaceAll('_', ' ');
-    const statusUpper = String(item.status || '').toUpperCase();
+    const statusUpper = String(item.status || (item.executed ? 'FINISHED' : 'PURCHASED')).toUpperCase();
+    const statusLabel = statusUpper.replaceAll('_', ' ');
     const isTrackableWash =
       !isRepairTicket &&
-      !statusUpper.includes('COMPLETE') &&
-      !statusUpper.includes('FAIL') &&
-      !statusUpper.includes('CANCEL');
+      statusUpper !== 'FINISHED' &&
+      statusUpper !== 'CANCELED' &&
+      statusUpper !== 'NOT_PURCHASED';
     const statusColor = (() => {
-      const s = String(item.status || '').toUpperCase();
-      if (s.includes('COMPLETE')) return '#16A34A';
-      if (s.includes('PROGRESS') || s.includes('START')) return '#2563EB';
-      if (s.includes('FAIL') || s.includes('CANCEL')) return '#DC2626';
+      const s = statusUpper;
+      if (s === 'FINISHED') return '#16A34A';
+      if (s === 'WASHING' || s === 'QUEUING') return '#2563EB';
+      if (s === 'CANCELED' || s === 'NOT_PURCHASED') return '#DC2626';
+      if (s === 'PURCHASED') return '#0891B2';
       return '#34C759';
     })();
 
@@ -88,8 +89,19 @@ const MyBookingsScreen: React.FC = () => {
         setProcessingId(item.id);
         const base = item.scheduledTime ? new Date(item.scheduledTime) : new Date();
         base.setDate(base.getDate() + 1);
+        const isRepair = isRepairTicket;
         const payload = {
-          ...item,
+          carId: item.carId,
+          userId: item.userId,
+          stationId: item.stationId,
+          washingProgramId: isRepair ? null : item.washingProgramId,
+          repairShopId: isRepair ? item.repairShopId : null,
+          repairSkuId: isRepair ? item.repairSkuId : null,
+          repairItemName: isRepair ? item.repairItemName : null,
+          repairPriceAmount: isRepair ? item.repairPriceAmount : null,
+          repairPriceCurrency: isRepair ? item.repairPriceCurrency : null,
+          bookingType: isRepair ? 'REPAIR' : 'WASH',
+          executed: Boolean(item.executed),
           scheduledTime: base.toISOString(),
           token: userState?.token || item.token,
         };

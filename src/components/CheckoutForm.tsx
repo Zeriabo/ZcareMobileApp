@@ -70,10 +70,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     if (!existingCustomerId) return;
     setLoadingCards(true);
     try {
-      const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/payment/saved-cards`, {
-        params: { customerId: existingCustomerId },
-        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
-      });
+      const response = await tryRequests(
+        getApiBases().map(base => () =>
+          axios.get(`${base}/payment/saved-cards`, {
+            params: { customerId: existingCustomerId },
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          })
+        )
+      );
       const cards = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.cards)
@@ -91,46 +95,40 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   };
 
   const withAuthHeaders = () => (user?.token ? { Authorization: `Bearer ${user.token}` } : undefined);
+  const getApiBases = () => {
+    const rawBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
+    const noV1 = rawBase.endsWith('/v1') ? rawBase.slice(0, -3) : rawBase;
+    return Array.from(new Set([rawBase, `${noV1}/v1`]));
+  };
+
+  const tryRequests = async (requests: Array<() => Promise<any>>) => {
+    let lastError: any = null;
+    for (const request of requests) {
+      try {
+        return await request();
+      } catch (e: any) {
+        lastError = e;
+        if (![404, 405].includes(e?.response?.status)) throw e;
+      }
+    }
+    throw lastError || new Error('No compatible endpoint found');
+  };
 
   const setDefaultSavedCard = async (paymentMethodId: string) => {
-    const base = process.env.EXPO_PUBLIC_SERVER_URL;
-    const candidates = [
+    const candidates = getApiBases().flatMap(base => [
       () => axios.post(`${base}/payment/saved-cards/default`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
       () => axios.post(`${base}/payment/default-card`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
       () => axios.put(`${base}/payment/saved-cards/${paymentMethodId}/default`, { customerId }, { headers: withAuthHeaders() }),
-    ];
-
-    let done = false;
-    for (const call of candidates) {
-      try {
-        await call();
-        done = true;
-        break;
-      } catch (e: any) {
-        if (![404, 405].includes(e?.response?.status)) throw e;
-      }
-    }
-    if (!done) throw new Error('Default-card endpoint not available.');
+    ]);
+    await tryRequests(candidates);
   };
 
   const deleteSavedCard = async (paymentMethodId: string) => {
-    const base = process.env.EXPO_PUBLIC_SERVER_URL;
-    const candidates = [
+    const candidates = getApiBases().flatMap(base => [
       () => axios.delete(`${base}/payment/saved-cards/${paymentMethodId}`, { params: { customerId }, headers: withAuthHeaders() }),
       () => axios.post(`${base}/payment/saved-cards/delete`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
-    ];
-
-    let done = false;
-    for (const call of candidates) {
-      try {
-        await call();
-        done = true;
-        break;
-      } catch (e: any) {
-        if (![404, 405].includes(e?.response?.status)) throw e;
-      }
-    }
-    if (!done) throw new Error('Delete-card endpoint not available.');
+    ]);
+    await tryRequests(candidates);
   };
 
   const setupCardForFuture = async () => {
@@ -141,12 +139,17 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       email: user?.email || '',
     };
 
-    const setupIntentResponse = await axios.post(
-      `${process.env.EXPO_PUBLIC_SERVER_URL}/payment/create-setup-intent`,
-      payload,
-      {
-        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
-      }
+    const setupIntentResponse = await tryRequests(
+      getApiBases().flatMap(base => [
+        () =>
+          axios.post(`${base}/payment/create-setup-intent`, payload, {
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          }),
+        () =>
+          axios.post(`${base}/payment/setup-intent`, payload, {
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          }),
+      ])
     );
 
     const setupClientSecret = setupIntentResponse?.data?.clientSecret;

@@ -3,6 +3,7 @@ import notifee, { AndroidImportance } from '@notifee/react-native';
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
+import { fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
 
 const SocketContext = createContext<Socket | null>(null);
@@ -11,7 +12,12 @@ export const SocketProvider = ({ children }: any) => {
   const dispatch = useDispatch<any>();
   const user = useSelector((state: RootState) => state.user.user as any);
   const seenEventsRef = useRef<Set<string>>(new Set());
-  const socket = io(process.env.EXPO_PUBLIC_SERVER_URL+':9099', { autoConnect: false });
+  const socketRef = useRef<Socket | null>(null);
+
+  if (!socketRef.current) {
+    socketRef.current = io((process.env.EXPO_PUBLIC_SERVER_URL || '') + ':9099', { autoConnect: false });
+  }
+  const socket = socketRef.current;
 
   const parsePayload = (incoming: any) => {
     if (typeof incoming === 'string') {
@@ -26,12 +32,13 @@ export const SocketProvider = ({ children }: any) => {
 
   const normalizeStatus = (rawStatus: any): string => {
     const normalized = String(rawStatus || '').trim().toLowerCase();
-    if (!normalized) return 'ACTIVE';
-    if (normalized.includes('progress') || normalized.includes('washing')) return 'IN_PROGRESS';
-    if (normalized.includes('start')) return 'STARTED';
-    if (normalized.includes('complete') || normalized.includes('finish') || normalized.includes('done')) return 'COMPLETED';
-    if (normalized.includes('cancel')) return 'CANCELLED';
-    if (normalized.includes('fail') || normalized.includes('error')) return 'FAILED';
+    if (!normalized) return 'PURCHASED';
+    if (normalized.includes('queue')) return 'QUEUING';
+    if (normalized.includes('wash') || normalized.includes('progress') || normalized.includes('start')) return 'WASHING';
+    if (normalized.includes('finish') || normalized.includes('complete') || normalized.includes('done')) return 'FINISHED';
+    if (normalized.includes('cancel')) return 'CANCELED';
+    if (normalized.includes('not_purchased') || normalized.includes('not purchased')) return 'NOT_PURCHASED';
+    if (normalized.includes('purchased')) return 'PURCHASED';
     return normalized.toUpperCase();
   };
 
@@ -45,10 +52,21 @@ export const SocketProvider = ({ children }: any) => {
     return Number.isFinite(asNumber) ? asNumber : null;
   };
 
+  const readUserId = (payload: any): number | null => {
+    const candidate =
+      payload?.userId ??
+      payload?.booking?.userId ??
+      payload?.booking?.user?.id;
+    const asNumber = Number(candidate);
+    return Number.isFinite(asNumber) ? asNumber : null;
+  };
+
   const applyRealtimeUpdate = async (eventName: string, incoming: any) => {
     const payload = parsePayload(incoming);
     const bookingId = readBookingId(payload);
-    const status = normalizeStatus(payload?.status || eventName);
+    const status = normalizeStatus(payload?.washStatus || payload?.bookingStatus || payload?.status || eventName);
+    const eventUserId = readUserId(payload);
+    const currentUserId = Number(user?.id);
     const eventKey = `${eventName}:${bookingId ?? 'none'}:${status}:${payload?.updatedAt || payload?.timestamp || payload?.message || ''}`;
 
     if (seenEventsRef.current.has(eventKey)) return;
@@ -59,7 +77,7 @@ export const SocketProvider = ({ children }: any) => {
       if (first) seenEventsRef.current.delete(first);
     }
 
-    const title = payload?.title || 'ZCare Update';
+    const title = payload?.title || (status === 'FINISHED' ? 'Wash finished' : 'Wash status updated');
     const body =
       payload?.message ||
       (bookingId ? `Booking #${bookingId}: ${status.replaceAll('_', ' ')}` : status.replaceAll('_', ' '));
@@ -75,22 +93,35 @@ export const SocketProvider = ({ children }: any) => {
       android: { channelId: 'zcare_updates' },
     });
 
-    if (!bookingId) return;
+    if (Number.isFinite(currentUserId) && Number.isFinite(eventUserId) && eventUserId !== currentUserId) {
+      return;
+    }
+    if (!bookingId) {
+      if (user?.token) dispatch(fetchUserBookings(user.token));
+      return;
+    }
 
     dispatch((innerDispatch: any, getState: any) => {
       const bookings = getState()?.booking?.bookings || [];
       const existing = bookings.find((b: any) => Number(b?.id) === bookingId);
-      if (!existing) return;
+      if (!existing) {
+        if (user?.token) innerDispatch(fetchUserBookings(user.token));
+        return;
+      }
 
       const next = {
         ...existing,
         status,
-        executed: status === 'COMPLETED' ? true : existing.executed,
+        executed: status === 'FINISHED' ? true : existing.executed,
         updatedAt: payload?.updatedAt || new Date().toISOString(),
         progress: payload?.progress ?? existing?.progress,
       };
       innerDispatch({ type: 'UPDATE_BOOKING', payload: next });
     });
+
+    if (user?.token) {
+      dispatch(fetchUserBookings(user.token));
+    }
   };
 
   useEffect(() => {

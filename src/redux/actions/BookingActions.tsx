@@ -119,10 +119,33 @@ export const createBooking = (bookingInput: any) => {
 export const updateBooking = (bookingId: any, booking: any) => {
   return async (dispatch: any) => {
     try {
-      const response = await axios.put(
-        process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
-        booking,
-      );
+      const base = process.env.EXPO_PUBLIC_SERVER_URL;
+      let response: any;
+      const attempts = [
+        () => axios.put(`${base}/booking/${bookingId}`, booking),
+        () => axios.put(`${base}/v1/bookings/${bookingId}`, booking),
+        () => axios.patch(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+        () => axios.patch(`${base}/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+      ];
+
+      let lastError: any = null;
+      for (const attempt of attempts) {
+        try {
+          response = await attempt();
+          if (response) break;
+        } catch (error: any) {
+          lastError = error;
+          // only continue fallback on not-found/method-not-allowed
+          if (![404, 405].includes(error?.response?.status)) {
+            throw error;
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Update booking endpoint unavailable');
+      }
+
       dispatch(updateBookingSuccess(response.data));
       dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
             await displayLocalNotification(
