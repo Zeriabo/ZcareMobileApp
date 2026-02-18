@@ -16,4 +16,5 @@ export type RootStackParamList = {
   AddCar:undefined;
   RepairShop: { shop: RepairShop };
   AIAssistant: undefined;
+  ActiveWash: { bookingId: number };
 };

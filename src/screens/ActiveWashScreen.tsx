@@ -1,86 +1,146 @@
-import { useNavigation } from '@react-navigation/native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import LottieView from 'lottie-react-native';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
+import { RootStackParamList } from '../redux/types/stackParams';
+
 const carWashAnimation = require('../assets/animations/car_wash.json');
-const ActiveWashScreen = () => {
-  const navigation = useNavigation<any>();
-  const progress = useRef(new Animated.Value(0)).current;
-  const [completed, setCompleted] = useState(false);
+
+type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWash'>;
+
+const normalizeStatus = (raw: any) => {
+  const s = String(raw || '').toUpperCase();
+  if (!s) return 'ACTIVE';
+  return s;
+};
+
+const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { bookingId } = route.params;
+  const booking = useSelector((state: any) =>
+    (state.booking?.bookings || []).find((b: any) => Number(b?.id) === Number(bookingId))
+  );
+
+  const status = normalizeStatus(booking?.status || (booking?.executed ? 'COMPLETED' : 'ACTIVE'));
+  const [fallbackProgress, setFallbackProgress] = useState(8);
 
   useEffect(() => {
-    // Animate progress from 0 → 1 in 10 seconds
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 10000,
-      useNativeDriver: false,
-    }).start(() => {
-      setCompleted(true);
-      setTimeout(() => {
-        navigation.goBack(); // go back after showing "completed"
-      }, 2000);
-    });
-  }, []);
+    const done = status.includes('COMPLETED');
+    if (done) {
+      setFallbackProgress(100);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setFallbackProgress(prev => Math.min(prev + 2, 92));
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const progress = useMemo(() => {
+    if (typeof booking?.progress === 'number' && Number.isFinite(booking.progress)) {
+      return Math.max(0, Math.min(100, booking.progress));
+    }
+    if (status.includes('COMPLETED')) return 100;
+    if (status.includes('STARTED')) return Math.max(fallbackProgress, 15);
+    if (status.includes('IN_PROGRESS') || status.includes('WASHING')) return Math.max(fallbackProgress, 30);
+    return fallbackProgress;
+  }, [booking?.progress, status, fallbackProgress]);
+
+  const isDone = status.includes('COMPLETED');
+  const isFailed = status.includes('FAILED') || status.includes('CANCELLED');
 
   return (
     <View style={styles.container}>
-      {!completed ? (
-        <>
-          <Text style={styles.title}>🚗 Your Car is Being Washed...</Text>
-          <LottieView
-             source={carWashAnimation}
-            autoPlay
-            loop
-            style={{width: 300, height: 300}}
-          />
+      <Text style={styles.title}>
+        {isDone ? 'Wash completed' : isFailed ? 'Wash interrupted' : 'Your car is being washed'}
+      </Text>
+      <Text style={styles.subTitle}>Booking #{bookingId}</Text>
 
-          <Animated.View
-            style={[
-              styles.progressBar,
-              {
-                width: progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
-            ]}
-          />
-        </>
-      ) : (
-        <View style={styles.doneContainer}>
-          <Text style={styles.doneText}>✅ Wash Completed!</Text>
-        </View>
-      )}
+      <LottieView source={carWashAnimation} autoPlay loop={!isDone} style={styles.animation} />
+
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+      </View>
+      <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+
+      <Text style={styles.statusText}>Status: {status.replaceAll('_', ' ')}</Text>
+
+      <Pressable
+        onPress={() =>
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          })
+        }
+        style={styles.homeBtn}
+      >
+        <Text style={styles.homeBtnText}>Back to Home</Text>
+      </Pressable>
     </View>
   );
 };
 
-export default ActiveWashScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#dff9fb',
+    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'center',
   },
-  progressBar: {
-    height: 10,
-    backgroundColor: '#00a8ff',
-    borderRadius: 10,
+  subTitle: {
+    marginTop: 4,
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  animation: {
+    width: 300,
+    height: 300,
+    marginTop: 16,
+  },
+  progressTrack: {
+    width: '92%',
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: '#D1D5DB',
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+  },
+  progressText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  statusText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    textTransform: 'capitalize',
+  },
+  homeBtn: {
     marginTop: 20,
+    backgroundColor: '#4F46E5',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  doneContainer: {
-    alignItems: 'center',
-  },
-  doneText: {
-    fontSize: 26,
-    color: '#27ae60',
-    fontWeight: 'bold',
+  homeBtnText: {
+    color: '#fff',
+    fontWeight: '800',
   },
 });
+
+export default ActiveWashScreen;

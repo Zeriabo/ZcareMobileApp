@@ -1,4 +1,4 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -13,6 +13,7 @@ import { Colors, Spacing } from '../theme/design';
 
 const MyBookingsScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const navigation = useNavigation<any>();
   const userState = useSelector((state: RootState) => state.user.user);
   const allBookings = useSelector((state: RootState) => state.booking.bookings);
   const bookings = useMemo(
@@ -41,6 +42,12 @@ const MyBookingsScreen: React.FC = () => {
       !item.washingProgramId;
 
     const statusLabel = String(item.status || (item.executed ? 'COMPLETED' : 'ACTIVE')).replaceAll('_', ' ');
+    const statusUpper = String(item.status || '').toUpperCase();
+    const isTrackableWash =
+      !isRepairTicket &&
+      !statusUpper.includes('COMPLETE') &&
+      !statusUpper.includes('FAIL') &&
+      !statusUpper.includes('CANCEL');
     const statusColor = (() => {
       const s = String(item.status || '').toUpperCase();
       if (s.includes('COMPLETE')) return '#16A34A';
@@ -157,6 +164,14 @@ const MyBookingsScreen: React.FC = () => {
             )}
           </TouchableOpacity>
         </View>
+        {isTrackableWash && (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.trackBtn]}
+            onPress={() => navigation.navigate('ActiveWash', { bookingId: Number(item.id) })}
+          >
+            <Text style={styles.actionText}>Track Live Wash</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </AppCard>
     );
@@ -234,6 +249,7 @@ const styles = StyleSheet.create({
   },
   actionDanger: { backgroundColor: Colors.danger },
   actionText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  trackBtn: { width: '100%', marginTop: 8, backgroundColor: '#0891B2' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
   message: { fontSize: 18, color: Colors.textMuted },
 });
