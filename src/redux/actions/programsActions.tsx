@@ -1,15 +1,13 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
+import { ThunkAction } from 'redux-thunk';
+import { RootState } from '../store';
 import {
-  FETCH_STATIONS_SUCCESS,
-  FETCH_STATIONS_FAILURE,
-  ProgramsAction,
+  FETCH_PROGRAMS_FAILURE,
   FETCH_PROGRAMS_REQUEST,
   FETCH_PROGRAMS_SUCCESS,
-  FETCH_PROGRAMS_FAILURE,
+  ProgramsAction,
 } from '../types/stationsActionTypes';
-import { RootState } from '../store';
-import { ThunkAction } from 'redux-thunk';
 
 
 // Fetch stations action using REST API

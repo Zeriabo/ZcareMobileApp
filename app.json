@@ -4,8 +4,21 @@
     "slug": "zcare",
     "version": "1.0.0",
     "ios": {
-      "bundleIdentifier": "com.zcare.auth", 
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "bundleIdentifier": "com.zcare.auth",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "zcare.duckdns.org": {
+              "NSIncludesSubdomains": true,
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "usesCleartextTraffic": true
     },
     "platforms": [
       "ios",

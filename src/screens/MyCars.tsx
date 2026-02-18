@@ -1,21 +1,22 @@
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useEffect } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
-import { Button, Card, FAB } from 'react-native-paper';
+import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { Button, Card, Circle, Text, YStack } from 'tamagui';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
 
 function MyCars() {
   const user = useSelector((state: any) => state.user.user);
   const cars = useSelector((state: any) => state.cars.cars);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
-const isFocused = useIsFocused();
+  const isFocused = useIsFocused();
+console.log(cars)
   useEffect(() => {
     if (user?.token && isFocused) {
       dispatch(getUserCars(user.token));
     }
-  }, [dispatch, user,isFocused]);
+  }, [dispatch, user, isFocused]);
 
   const handleRemoveCar = (car: any) => {
     Alert.alert(
@@ -34,56 +35,64 @@ const isFocused = useIsFocused();
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Cars</Text>
+    <YStack padding="$4" space="$4">
+      <Text fontSize={22} fontWeight="700">
+        My Cars
+      </Text>
 
       {cars.length === 0 && (
-        <Text style={styles.empty}>No cars registered yet</Text>
+        <Text color="$gray10">No cars registered yet</Text>
       )}
 
       {cars.map((car: any) => (
-        <Card key={car.carId} style={styles.card}>
-          <Card.Content>
-            <Text style={styles.carTitle}>
-              {car.manufacture} {car.registrationPlate}
+        <Card
+          key={car.carId}
+          padding="$3"
+          borderRadius="$4"
+          backgroundColor="$background"
+          elevation={3}
+        >
+          <YStack space="$2">
+            <Text fontSize={18} fontWeight="700">
+              {car.manufacture} {car.registerationPlate}
             </Text>
-            <Text style={styles.carInfo}>
-              Manufacture Date: {car.dateOfManufacture}
+            <Text fontSize={14} color="$gray10">
+               Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
             </Text>
 
+            {/* Remove Car Button */}
             <Button
-              mode="contained"
-              style={{ marginTop: 10 }}
+              size="$fit"
+              backgroundColor="$red10"
+              color="white"
+              borderRadius="$3"
+              paddingHorizontal="$4"
+              pressStyle={{ scale: 0.95, backgroundColor: '$red9' }}
               onPress={() => handleRemoveCar(car)}
             >
               Remove Car
             </Button>
-          </Card.Content>
+          </YStack>
         </Card>
       ))}
 
-      <FAB
-        icon="plus"
-        label="Add Car"
-        style={styles.fab}
+      <Circle
+        position="absolute"
+        right="$4"
+
+        size={56}
+        backgroundColor="$green10"
+        alignItems="center"
+        justifyContent="center"
+        elevation={6}
         onPress={() => navigation.navigate('AddCar')}
-      />
-    </View>
+      >
+        <Text fontSize={32} color="white">
+          +
+        </Text>
+      </Circle>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { marginTop: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  empty: { color: 'gray', marginBottom: 10 },
-  card: { marginBottom: 16, borderRadius: 8 },
-  carTitle: { fontSize: 18, fontWeight: 'bold' },
-  carInfo: { fontSize: 14, color: 'gray' },
-  fab: {
-    position: 'absolute',
-    right: 0,
-    bottom: -50,
-  },
-});
 
 export default MyCars;

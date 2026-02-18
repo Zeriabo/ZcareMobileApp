@@ -6,7 +6,7 @@ import { io, Socket } from 'socket.io-client';
 const SocketContext = createContext<Socket | null>(null);
 
 export const SocketProvider = ({ children }: any) => {
-  const socket = io('http://192.168.1.241:9099', { autoConnect: false });
+  const socket = io(process.env.EXPO_PUBLIC_SERVER_URL+':9099', { autoConnect: false });
 
   useEffect(() => {
     socket.connect();

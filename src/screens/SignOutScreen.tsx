@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { signOut } from '../redux/actions/AuthActions';
 
 const SignOutScreen: React.FC<any> = ({ navigation }) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const user = useSelector((state: any) => state.user.user);
 
   useEffect(() => {

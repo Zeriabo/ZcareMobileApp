@@ -6,7 +6,7 @@ import { confirm_payment } from '../redux/actions/BuyActions';
 
 const PaymentConfirmation = () => {
   const navigation = useNavigation();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const pi = useSelector((state: any) => state.cart.pi);
   // const handlePaymentConfirmationResult = (isSuccess, errorMessage) => {
   //   if (isSuccess) {
