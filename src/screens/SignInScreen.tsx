@@ -11,7 +11,7 @@ const SignInScreen = ({ navigation }: any) => {
   const [password, setPassword] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const user = useSelector((state: any) => state.user.user);
   const error = useSelector((state: any) => state.user.error);
 

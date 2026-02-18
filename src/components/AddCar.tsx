@@ -1,17 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft } from '@tamagui/lucide-icons';
+import { MotiView } from 'moti';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { Button, IconButton, Text, TextInput } from 'react-native-paper';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { Button, Circle, Input, Text, YStack } from 'tamagui';
 import { registerCar } from '../redux/actions/carActions';
 
 export default function AddCar() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
   const user = useSelector((state: any) => state.user.user);
 
@@ -26,83 +23,96 @@ export default function AddCar() {
         registrationPlate,
         dateOfManufacture,
         token: user.token,
-      }),
+      })
     );
     navigation.goBack();
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.card}>
-        {/* 🔙 Back Button */}
-        <IconButton
-          icon="arrow-left"
-          size={24}
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        />
+      <YStack
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        padding="$4"
+        backgroundColor="$background"
+      >
+        <YStack
+          width="100%"
+          maxWidth={400}
+          backgroundColor="$background"
+          borderRadius="$5"
+          padding="$4"
+          elevation={3}
+          space="$4"
+        >
+          {/* 🔙 Back Button */}
+          <Circle
+            size={36}
+            backgroundColor="$gray3"
+            alignItems="center"
+            justifyContent="center"
+            onPress={() => navigation.goBack()}
+          >
+            <ArrowLeft size={20} color="black" />
+          </Circle>
 
-        <Text style={styles.title}>Add a New Car</Text>
+          <Text fontSize={24} fontWeight="700" textAlign="center">
+            Add a New Car
+          </Text>
 
-        <TextInput
-          label="Manufacture"
-          value={manufacture}
-          onChangeText={setManufacture}
-          style={styles.input}
-        />
+          {/* Inputs */}
+          <Input
+            value={manufacture}
+            onChangeText={setManufacture}
+            placeholder="Manufacture"
+            borderRadius="$3"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+          />
 
-        <TextInput
-          label="Registration Plate"
-          value={registrationPlate}
-          onChangeText={setRegistrationPlate}
-          style={styles.input}
-        />
+          <Input
+            value={registrationPlate}
+            onChangeText={setRegistrationPlate}
+            placeholder="Registration Plate"
+            borderRadius="$3"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+          />
 
-        <TextInput
-          label="Manufacture Date"
-          value={dateOfManufacture}
-          onChangeText={setDateOfManufacture}
-          style={styles.input}
-        />
+          <Input
+            value={dateOfManufacture}
+            onChangeText={setDateOfManufacture}
+            placeholder="Manufacture Date (YYYY)"
+            borderRadius="$3"
+            paddingVertical="$2"
+            paddingHorizontal="$3"
+          />
 
-        <Button mode="contained" onPress={handleAddCar} style={styles.button}>
-          Add Car
-        </Button>
-      </View>
+          {/* Add Car Button */}
+          <MotiView
+            from={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 15, stiffness: 120 }}
+          >
+            <Button
+              size="$fit"
+              backgroundColor="$green10"
+              color="white"
+              borderRadius="$3"
+              paddingHorizontal="$5"
+              paddingVertical="$3"
+              pressStyle={{ scale: 0.96, backgroundColor: '$green9' }}
+              onPress={handleAddCar}
+            >
+              Add Car
+            </Button>
+          </MotiView>
+        </YStack>
+      </YStack>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    marginBottom: 12,
-  },
-  button: {
-    marginTop: 10,
-  },
-    backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 5,
-  },
-});
