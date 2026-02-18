@@ -46,7 +46,7 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.08,
 };
 
-const REPAIR_ENDPOINTS = ['/api/repairshops', '/repairshops', '/v1/repairshops'];
+const REPAIR_ENDPOINTS = ['/api/repairshops'];
 
 const openNavigation = (lat: number, lng: number) => {
   const url = Platform.select({
@@ -195,52 +195,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       .filter((shop): shop is RepairShop => Boolean(shop));
   };
 
-  const demoRepairShops = (anchor: { latitude: number; longitude: number } | null): RepairShop[] => {
-    const latitude = anchor?.latitude ?? DEFAULT_REGION.latitude;
-    const longitude = anchor?.longitude ?? DEFAULT_REGION.longitude;
-
-    return [
-      {
-        id: 'demo-repair-1',
-        name: 'QuickFix Garage',
-        location: 'Central district',
-        latitude: latitude + 0.0041,
-        longitude: longitude - 0.0034,
-        servicesOffered: ['OIL_CHANGE', 'GENERAL_MAINTENANCE'],
-      },
-      {
-        id: 'demo-repair-2',
-        name: 'North Auto Care',
-        location: 'North side',
-        latitude: latitude - 0.0053,
-        longitude: longitude + 0.0039,
-        servicesOffered: ['BRAKE_SERVICE', 'TIRE_CHANGE'],
-      },
-      {
-        id: 'demo-repair-3',
-        name: 'Battery & Engine Hub',
-        location: 'East district',
-        latitude: latitude + 0.0032,
-        longitude: longitude + 0.0061,
-        servicesOffered: ['BATTERY_REPLACEMENT', 'ENGINE_REPAIR'],
-      },
-    ];
-  };
-
-  const seedRepairShops = async (baseUrl: string, anchor: { latitude: number; longitude: number } | null) => {
-    const demos = demoRepairShops(anchor).map(({ id: _id, ...rest }) => rest);
-    for (const endpoint of REPAIR_ENDPOINTS) {
-      try {
-        await Promise.all(demos.map(shop => axios.post(`${baseUrl}${endpoint}`, shop)));
-        return true;
-      } catch {
-        // try next endpoint
-      }
-    }
-    return false;
-  };
-
-  const fetchRepairShops = async (anchor: { latitude: number; longitude: number } | null) => {
+  const fetchRepairShops = async () => {
     const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || '';
     setRepairLoading(true);
     setRepairError(null);
@@ -249,28 +204,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       try {
         const response = await axios.get(`${baseUrl}${endpoint}`);
         const normalized = normalizeRepairShops(Array.isArray(response.data) ? response.data : []);
-
-        if (normalized.length > 0) {
-          setRepairShops(normalized);
-          setRepairLoading(false);
-          return;
-        }
-
-        await seedRepairShops(baseUrl, anchor);
-        const refetched = await axios.get(`${baseUrl}${endpoint}`);
-        const seeded = normalizeRepairShops(Array.isArray(refetched.data) ? refetched.data : []);
-        if (seeded.length > 0) {
-          setRepairShops(seeded);
-          setRepairLoading(false);
-          return;
-        }
+        setRepairShops(normalized);
+        setRepairLoading(false);
+        return;
       } catch {
         // try next endpoint
       }
     }
 
-    setRepairShops(demoRepairShops(anchor));
-    setRepairError('Showing demo repair shops');
+    setRepairShops([]);
+    setRepairError('Could not load repair shops from backend.');
     setRepairLoading(false);
   };
 
@@ -281,7 +224,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         Alert.alert('Permission required', 'We need access to your location to show relevant content.');
         setInitialRegion(DEFAULT_REGION);
         setCurrentRegion(DEFAULT_REGION);
-        fetchRepairShops(null);
+        fetchRepairShops();
         return;
       }
 
@@ -296,12 +239,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       setUserCoords(current);
       setInitialRegion(region);
       setCurrentRegion(region);
-      fetchRepairShops(current);
+      fetchRepairShops();
     } catch (error) {
       console.log('Location error:', error);
       setInitialRegion(DEFAULT_REGION);
       setCurrentRegion(DEFAULT_REGION);
-      fetchRepairShops(null);
+      fetchRepairShops();
     } finally {
       setLoadingLocation(false);
     }
@@ -331,7 +274,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       dispatch(fetchStations());
       return;
     }
-    fetchRepairShops(userCoords);
+    fetchRepairShops();
   };
 
   const handleStationClick = (station: Station) => {
