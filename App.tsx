@@ -14,6 +14,8 @@ import './src/config/firebase';
 import store from './src/redux/store';
 import BuywashScreen from './src/screens/BuywashScreen';
 import RegisterCarScreen from './src/screens/RegisterCarScreen';
+import AIAssistantScreen from './src/screens/AIAssistantScreen';
+import RepairShopScreen from './src/screens/RepairShopScreen';
 import StationPage from './src/screens/StationPage';
 // Redux actions and helpers
 import { getMessaging, onMessage } from '@react-native-firebase/messaging';
@@ -104,6 +106,8 @@ function AppContent() {
             <RootStack.Screen name="CheckoutForm" component={CheckoutForm} />
             <RootStack.Screen name="QrScreen" component={QrScreen} />
             <RootStack.Screen name="AddCar" component={AddCar} />
+            <RootStack.Screen name="RepairShop" component={RepairShopScreen} />
+            <RootStack.Screen name="AIAssistant" component={AIAssistantScreen} />
       
           </RootStack.Navigator>
         </NavigationContainer>

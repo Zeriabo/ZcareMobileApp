@@ -4,6 +4,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import axios from 'axios';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useDispatch, useSelector } from 'react-redux';
 import markerIcon from '../assets/images/wash-washing.png';
@@ -18,6 +21,7 @@ import { fetchBookings } from '../redux/actions/BookingActions';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
+import { RepairShop } from '../types/repair';
 import { calculateDistanceKm } from '../utils/calulations';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -26,6 +30,7 @@ interface Props {
 }
 
 type NormalizedStation = Station & { latitude: number; longitude: number };
+
 type MarkerCluster = {
   id: string;
   latitude: number;
@@ -39,6 +44,18 @@ const DEFAULT_REGION: Region = {
   longitude: 19.0402,
   latitudeDelta: 0.08,
   longitudeDelta: 0.08,
+};
+
+const REPAIR_ENDPOINTS = ['/api/repairshops', '/repairshops', '/v1/repairshops'];
+
+const openNavigation = (lat: number, lng: number) => {
+  const url = Platform.select({
+    ios: `maps://?q=${lat},${lng}`,
+    android: `google.navigation:q=${lat},${lng}`,
+  });
+  if (url) {
+    Linking.openURL(url);
+  }
 };
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -56,7 +73,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [failedLogoMarkers, setFailedLogoMarkers] = useState<Record<string, boolean>>({});
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [repairShops, setRepairShops] = useState<RepairShop[]>([]);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
 
   const normalizedStations = useMemo(() => {
     return stations
@@ -79,14 +100,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, [normalizedStations, userCoords]);
 
+  const sheetRepairs = useMemo(() => {
+    const items = [...repairShops];
+    if (!userCoords) return items;
+    return items.sort((a, b) => {
+      const distanceA = calculateDistanceKm(userCoords.latitude, userCoords.longitude, a.latitude, a.longitude);
+      const distanceB = calculateDistanceKm(userCoords.latitude, userCoords.longitude, b.latitude, b.longitude);
+      return distanceA - distanceB;
+    });
+  }, [repairShops, userCoords]);
+
   const nearestDistanceKm = useMemo(() => {
-    if (!userCoords || normalizedStations.length === 0) return null;
+    const items = serviceType === 'wash' ? normalizedStations : repairShops;
+    if (!userCoords || items.length === 0) return null;
     return Math.min(
-      ...normalizedStations.map(station =>
-        calculateDistanceKm(userCoords.latitude, userCoords.longitude, station.latitude, station.longitude)
+      ...items.map(item =>
+        calculateDistanceKm(userCoords.latitude, userCoords.longitude, item.latitude, item.longitude)
       )
     );
-  }, [normalizedStations, userCoords]);
+  }, [normalizedStations, repairShops, serviceType, userCoords]);
 
   const clusterCellSize = useMemo(() => {
     if (!currentRegion) return 0;
@@ -138,6 +170,110 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [normalizedStations, selectedStationId]);
 
+  useEffect(() => {
+    if (repairShops.length > 0 && !selectedRepairId) {
+      setSelectedRepairId(repairShops[0].id);
+    }
+  }, [repairShops, selectedRepairId]);
+
+  const normalizeRepairShops = (data: any[]): RepairShop[] => {
+    return data
+      .map((shop: any) => {
+        const latitude = Number(shop?.latitude);
+        const longitude = Number(shop?.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+        return {
+          id: String(shop?.id ?? `${shop?.name}-${latitude}-${longitude}`),
+          name: String(shop?.name ?? 'Repair Shop'),
+          location: String(shop?.location ?? shop?.address ?? 'Location unavailable'),
+          latitude,
+          longitude,
+          servicesOffered: Array.isArray(shop?.servicesOffered) ? shop.servicesOffered : [],
+        };
+      })
+      .filter((shop): shop is RepairShop => Boolean(shop));
+  };
+
+  const demoRepairShops = (anchor: { latitude: number; longitude: number } | null): RepairShop[] => {
+    const latitude = anchor?.latitude ?? DEFAULT_REGION.latitude;
+    const longitude = anchor?.longitude ?? DEFAULT_REGION.longitude;
+
+    return [
+      {
+        id: 'demo-repair-1',
+        name: 'QuickFix Garage',
+        location: 'Central district',
+        latitude: latitude + 0.0041,
+        longitude: longitude - 0.0034,
+        servicesOffered: ['OIL_CHANGE', 'GENERAL_MAINTENANCE'],
+      },
+      {
+        id: 'demo-repair-2',
+        name: 'North Auto Care',
+        location: 'North side',
+        latitude: latitude - 0.0053,
+        longitude: longitude + 0.0039,
+        servicesOffered: ['BRAKE_SERVICE', 'TIRE_CHANGE'],
+      },
+      {
+        id: 'demo-repair-3',
+        name: 'Battery & Engine Hub',
+        location: 'East district',
+        latitude: latitude + 0.0032,
+        longitude: longitude + 0.0061,
+        servicesOffered: ['BATTERY_REPLACEMENT', 'ENGINE_REPAIR'],
+      },
+    ];
+  };
+
+  const seedRepairShops = async (baseUrl: string, anchor: { latitude: number; longitude: number } | null) => {
+    const demos = demoRepairShops(anchor).map(({ id: _id, ...rest }) => rest);
+    for (const endpoint of REPAIR_ENDPOINTS) {
+      try {
+        await Promise.all(demos.map(shop => axios.post(`${baseUrl}${endpoint}`, shop)));
+        return true;
+      } catch {
+        // try next endpoint
+      }
+    }
+    return false;
+  };
+
+  const fetchRepairShops = async (anchor: { latitude: number; longitude: number } | null) => {
+    const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || '';
+    setRepairLoading(true);
+    setRepairError(null);
+
+    for (const endpoint of REPAIR_ENDPOINTS) {
+      try {
+        const response = await axios.get(`${baseUrl}${endpoint}`);
+        const normalized = normalizeRepairShops(Array.isArray(response.data) ? response.data : []);
+
+        if (normalized.length > 0) {
+          setRepairShops(normalized);
+          setRepairLoading(false);
+          return;
+        }
+
+        await seedRepairShops(baseUrl, anchor);
+        const refetched = await axios.get(`${baseUrl}${endpoint}`);
+        const seeded = normalizeRepairShops(Array.isArray(refetched.data) ? refetched.data : []);
+        if (seeded.length > 0) {
+          setRepairShops(seeded);
+          setRepairLoading(false);
+          return;
+        }
+      } catch {
+        // try next endpoint
+      }
+    }
+
+    setRepairShops(demoRepairShops(anchor));
+    setRepairError('Showing demo repair shops');
+    setRepairLoading(false);
+  };
+
   const getCurrentLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -145,6 +281,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         Alert.alert('Permission required', 'We need access to your location to show relevant content.');
         setInitialRegion(DEFAULT_REGION);
         setCurrentRegion(DEFAULT_REGION);
+        fetchRepairShops(null);
         return;
       }
 
@@ -155,13 +292,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         latitudeDelta: 0.04,
         longitudeDelta: 0.04,
       };
-      setUserCoords({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+      const current = { latitude: location.coords.latitude, longitude: location.coords.longitude };
+      setUserCoords(current);
       setInitialRegion(region);
       setCurrentRegion(region);
+      fetchRepairShops(current);
     } catch (error) {
       console.log('Location error:', error);
       setInitialRegion(DEFAULT_REGION);
       setCurrentRegion(DEFAULT_REGION);
+      fetchRepairShops(null);
     } finally {
       setLoadingLocation(false);
     }
@@ -174,15 +314,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || normalizedStations.length === 0) return;
-    mapRef.current.fitToCoordinates(
-      normalizedStations.map(station => ({ latitude: station.latitude, longitude: station.longitude })),
-      { edgePadding: { top: 90, right: 70, bottom: 260, left: 70 }, animated: true }
-    );
-  }, [normalizedStations]);
+    const points =
+      serviceType === 'wash'
+        ? normalizedStations.map(station => ({ latitude: station.latitude, longitude: station.longitude }))
+        : repairShops.map(shop => ({ latitude: shop.latitude, longitude: shop.longitude }));
 
-  const refreshStations = () => {
-    dispatch(fetchStations());
+    if (!mapRef.current || points.length === 0) return;
+    mapRef.current.fitToCoordinates(points, {
+      edgePadding: { top: 90, right: 70, bottom: sheetExpanded ? 340 : 220, left: 70 },
+      animated: true,
+    });
+  }, [normalizedStations, repairShops, serviceType, sheetExpanded]);
+
+  const refreshCurrentList = () => {
+    if (serviceType === 'wash') {
+      dispatch(fetchStations());
+      return;
+    }
+    fetchRepairShops(userCoords);
   };
 
   const handleStationClick = (station: Station) => {
@@ -195,6 +344,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {
         latitude: station.latitude,
         longitude: station.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      280
+    );
+  };
+
+  const focusRepairShop = (shop: RepairShop) => {
+    setSelectedRepairId(shop.id);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: shop.latitude,
+        longitude: shop.longitude,
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       },
@@ -226,19 +388,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  const itemCount = serviceType === 'wash' ? normalizedStations.length : repairShops.length;
+
   return (
     <View style={styles.container}>
       <View style={styles.summaryCard}>
         <View>
-          <Text style={styles.summaryLabel}>Nearby Stations</Text>
-          <Text style={styles.summaryValue}>{normalizedStations.length}</Text>
+          <Text style={styles.summaryLabel}>{serviceType === 'wash' ? 'Nearby Stations' : 'Nearby Repair Shops'}</Text>
+          <Text style={styles.summaryValue}>{itemCount}</Text>
           <Text style={styles.summaryHint}>
             {nearestDistanceKm !== null ? `${nearestDistanceKm.toFixed(1)} km closest` : 'Enable location for distance'}
           </Text>
         </View>
-        <Pressable onPress={refreshStations} style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshButtonPressed]}>
-          <Text style={styles.refreshButtonText}>{stationsLoading ? 'Refreshing...' : 'Refresh'}</Text>
-        </Pressable>
+        <View style={styles.summaryActions}>
+          <Pressable onPress={() => navigation.navigate('AIAssistant')} style={({ pressed }) => [styles.aiButton, pressed && styles.refreshButtonPressed]}>
+            <Text style={styles.aiButtonText}>AI</Text>
+          </Pressable>
+          <Pressable onPress={refreshCurrentList} style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshButtonPressed]}>
+            <Text style={styles.refreshButtonText}>
+              {serviceType === 'wash' ? (stationsLoading ? 'Refreshing...' : 'Refresh') : repairLoading ? 'Refreshing...' : 'Refresh'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.switchContainer}>
@@ -303,70 +474,124 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           })}
 
         {serviceType === 'repair' &&
-          normalizedStations.map(station => (
+          repairShops.map(shop => (
             <Marker
-              key={`repair-${station.id}`}
-              coordinate={{ latitude: station.latitude + 0.0005, longitude: station.longitude + 0.0005 }}
-              title="Repair Shop"
-            />
+              key={`repair-${shop.id}`}
+              coordinate={{ latitude: shop.latitude, longitude: shop.longitude }}
+              title={shop.name}
+              description={shop.location}
+              onPress={() => navigation.navigate('RepairShop', { shop })}
+            >
+              <View style={styles.repairPin}>
+                <Text style={styles.repairPinText}>R</Text>
+              </View>
+            </Marker>
           ))}
       </MapView>
 
       <View style={[styles.bottomSheet, sheetExpanded && styles.bottomSheetExpanded]}>
         <Pressable onPress={() => setSheetExpanded(prev => !prev)} style={styles.sheetHandleWrap}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Stations</Text>
+          <Text style={styles.sheetTitle}>{serviceType === 'wash' ? 'Stations' : 'Repair Shops'}</Text>
           <Text style={styles.sheetToggle}>{sheetExpanded ? 'Collapse' : 'Expand'}</Text>
         </Pressable>
 
         {sheetExpanded && (
           <ScrollView style={styles.sheetList} contentContainerStyle={styles.sheetListContent}>
-            {sheetStations.map(station => {
-              const distance =
-                userCoords &&
-                calculateDistanceKm(userCoords.latitude, userCoords.longitude, station.latitude, station.longitude).toFixed(1);
-              const isSelected = selectedStationId === station.id;
-              return (
-                <View key={`sheet-${station.id}`} style={[styles.sheetItem, isSelected && styles.sheetItemSelected]}>
-                  <View style={styles.sheetItemInfo}>
-                    <Text style={styles.sheetItemTitle} numberOfLines={1}>{station.name}</Text>
-                    <Text style={styles.sheetItemAddress} numberOfLines={1}>{station.address}</Text>
-                    <Text style={styles.sheetItemMeta}>{distance ? `${distance} km away` : 'Distance unavailable'}</Text>
+            {serviceType === 'wash' &&
+              sheetStations.map(station => {
+                const distance =
+                  userCoords &&
+                  calculateDistanceKm(userCoords.latitude, userCoords.longitude, station.latitude, station.longitude).toFixed(1);
+                const isSelected = selectedStationId === station.id;
+                return (
+                  <View key={`sheet-${station.id}`} style={[styles.sheetItem, isSelected && styles.sheetItemSelected]}>
+                    <View style={styles.sheetItemInfo}>
+                      <Text style={styles.sheetItemTitle} numberOfLines={1}>{station.name}</Text>
+                      <Text style={styles.sheetItemAddress} numberOfLines={1}>{station.address}</Text>
+                      <Text style={styles.sheetItemMeta}>{distance ? `${distance} km away` : 'Distance unavailable'}</Text>
+                    </View>
+                    <View style={styles.sheetActions}>
+                      <Pressable onPress={() => focusStation(station)} style={styles.focusButton}>
+                        <Text style={styles.focusButtonText}>Focus</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleStationClick(station)} style={styles.openButton}>
+                        <Text style={styles.openButtonText}>Open</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                  <View style={styles.sheetActions}>
-                    <Pressable onPress={() => focusStation(station)} style={styles.focusButton}>
-                      <Text style={styles.focusButtonText}>Focus</Text>
-                    </Pressable>
-                    <Pressable onPress={() => handleStationClick(station)} style={styles.openButton}>
-                      <Text style={styles.openButtonText}>Open</Text>
-                    </Pressable>
+                );
+              })}
+
+            {serviceType === 'repair' &&
+              sheetRepairs.map(shop => {
+                const distance =
+                  userCoords &&
+                  calculateDistanceKm(userCoords.latitude, userCoords.longitude, shop.latitude, shop.longitude).toFixed(1);
+                const isSelected = selectedRepairId === shop.id;
+                return (
+                  <View key={`sheet-repair-${shop.id}`} style={[styles.sheetItem, isSelected && styles.sheetItemSelected]}>
+                    <View style={styles.sheetItemInfo}>
+                      <Text style={styles.sheetItemTitle} numberOfLines={1}>{shop.name}</Text>
+                      <Text style={styles.sheetItemAddress} numberOfLines={1}>{shop.location}</Text>
+                      <Text style={styles.sheetItemMeta}>{distance ? `${distance} km away` : 'Distance unavailable'}</Text>
+                    </View>
+                    <View style={styles.sheetActions}>
+                      <Pressable onPress={() => focusRepairShop(shop)} style={styles.focusButton}>
+                        <Text style={styles.focusButtonText}>Focus</Text>
+                      </Pressable>
+                      <Pressable onPress={() => navigation.navigate('RepairShop', { shop })} style={styles.openButton}>
+                        <Text style={styles.openButtonText}>Open</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })}
           </ScrollView>
         )}
       </View>
 
-      {stationsLoading && (
+      {serviceType === 'wash' && stationsLoading && (
         <View style={styles.statusCard}>
           <ActivityIndicator size="small" color="#4F46E5" />
           <Text style={styles.statusText}>Loading stations...</Text>
         </View>
       )}
 
-      {stationsError && !stationsLoading && (
+      {serviceType === 'repair' && repairLoading && (
+        <View style={styles.statusCard}>
+          <ActivityIndicator size="small" color="#4F46E5" />
+          <Text style={styles.statusText}>Loading repair shops...</Text>
+        </View>
+      )}
+
+      {serviceType === 'wash' && stationsError && !stationsLoading && (
         <View style={styles.statusCard}>
           <Text style={styles.statusText}>Could not load stations.</Text>
-          <Pressable onPress={refreshStations} style={styles.retryButton}>
+          <Pressable onPress={refreshCurrentList} style={styles.retryButton}>
             <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
       )}
 
-      {!stationsLoading && !stationsError && normalizedStations.length === 0 && (
+      {serviceType === 'repair' && repairError && !repairLoading && (
+        <View style={styles.statusCard}>
+          <Text style={styles.statusText}>{repairError}</Text>
+          <Pressable onPress={refreshCurrentList} style={styles.retryButton}>
+            <Text style={styles.retryText}>Refresh</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {serviceType === 'wash' && !stationsLoading && !stationsError && normalizedStations.length === 0 && (
         <View style={styles.statusCard}>
           <Text style={styles.statusText}>No stations found in this area yet.</Text>
+        </View>
+      )}
+
+      {serviceType === 'repair' && !repairLoading && repairShops.length === 0 && (
+        <View style={styles.statusCard}>
+          <Text style={styles.statusText}>No repair shops found in this area yet.</Text>
         </View>
       )}
     </View>
@@ -423,6 +648,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  summaryActions: {
+    gap: 8,
+  },
+  aiButton: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  aiButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   switchContainer: {
     position: 'absolute',
     bottom: 94,
@@ -465,6 +705,21 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     backgroundColor: '#fff',
   },
+  repairPin: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#DC2626',
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repairPinText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 14,
+  },
   clusterBubble: {
     width: 40,
     height: 40,
@@ -494,7 +749,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   bottomSheetExpanded: {
-    height: 320,
+    height: '56%',
   },
   sheetHandleWrap: {
     alignItems: 'center',
