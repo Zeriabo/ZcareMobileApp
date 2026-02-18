@@ -2,12 +2,15 @@ import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Picker } from '@react-native-picker/picker';
-import Icon from 'react-native-vector-icons/Ionicons';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import PrimaryButton from '../components/ui/PrimaryButton';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { RootState } from '../redux/store';
+import { Colors, Radius, Spacing } from '../theme/design';
 
 type RepairRoute = RouteProp<RootStackParamList, 'RepairShop'>;
 type RepairNavigation = NativeStackNavigationProp<RootStackParamList, 'RepairShop'>;
@@ -178,17 +181,9 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <Pressable onPress={goBackSafe} hitSlop={12} style={styles.iconButton}>
-            <Icon name="chevron-back" size={22} color="#111827" />
-          </Pressable>
-        </View>
-        <Text style={styles.title}>{shop.name}</Text>
-        <Text style={styles.location}>{shop.location}</Text>
-      </View>
+      <AppHeader title={shop.name} subtitle={shop.location} onBack={goBackSafe} />
 
-      <View style={styles.card}>
+      <AppCard>
         <Text style={styles.label}>Services</Text>
         {services.length ? (
           services.map((service) => (
@@ -197,9 +192,9 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : (
           <Text style={styles.help}>No listed services from backend</Text>
         )}
-      </View>
+      </AppCard>
 
-      <View style={styles.card}>
+      <AppCard>
         <Text style={styles.label}>What To Repair</Text>
         {skuLoading ? (
           <Text style={styles.help}>Loading repair services...</Text>
@@ -250,39 +245,21 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.input}
         />
 
-        <Pressable onPress={handleBookRepair} style={[styles.bookBtn, loading && styles.disabled]} disabled={loading}>
-          <Text style={styles.bookBtnText}>{loading ? 'Booking...' : 'Book Repair'}</Text>
-        </Pressable>
-      </View>
+        <PrimaryButton onPress={handleBookRepair} label={loading ? 'Booking...' : 'Book Repair'} loading={loading} />
+      </AppCard>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  content: { padding: 16, gap: 14 },
-  header: { backgroundColor: '#fff', borderRadius: 14, padding: 16 },
-  headerTopRow: { flexDirection: 'row', justifyContent: 'flex-start' },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffffee',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { fontSize: 22, fontWeight: '800', color: '#111827', marginTop: 8 },
-  location: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 16 },
-  label: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  content: { padding: Spacing.md, gap: Spacing.md },
+  label: { fontSize: 14, fontWeight: '700', color: Colors.text },
   serviceItem: { marginTop: 6, color: '#374151', fontSize: 13 },
   help: { marginTop: 8, color: '#6B7280' },
-  priceTag: { marginTop: 8, color: '#111827', fontWeight: '700' },
-  pickerWrap: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, marginTop: 8 },
-  input: { marginTop: 8, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: '#111827' },
-  bookBtn: { marginTop: 14, backgroundColor: '#4F46E5', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  bookBtnText: { color: '#fff', fontWeight: '800' },
-  disabled: { opacity: 0.6 },
+  priceTag: { marginTop: 8, color: Colors.text, fontWeight: '700' },
+  pickerWrap: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: Radius.sm, marginTop: 8 },
+  input: { marginTop: 8, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text },
 });
 
 export default RepairShopScreen;

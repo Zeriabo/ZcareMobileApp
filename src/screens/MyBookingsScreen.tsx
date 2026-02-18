@@ -1,14 +1,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import { useDispatch, useSelector } from 'react-redux';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
 import { fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
-
-const { width } = Dimensions.get('window');
+import { Colors, Spacing } from '../theme/design';
 
 const MyBookingsScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
@@ -39,7 +40,7 @@ const MyBookingsScreen: React.FC = () => {
       !item.washingProgramId;
 
     return (
-    <View style={styles.bookingCard}>
+    <AppCard style={styles.bookingCard}>
       <Text style={styles.cardTitle}>
         {isRepairTicket ? 'Repair Ticket' : 'Wash Ticket'}
       </Text>
@@ -72,7 +73,7 @@ const MyBookingsScreen: React.FC = () => {
           <Text style={[styles.value, { color: '#34C759' }]}>Active</Text>
         </View>
       </View>
-    </View>
+    </AppCard>
     );
   };
 
@@ -103,9 +104,8 @@ const MyBookingsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Booking tickets</Text>
-        <Text style={styles.headerSubtitle}>{bookings.length} active codes</Text>
+      <View style={styles.headerWrap}>
+        <AppHeader title="Booking tickets" subtitle={`${bookings.length} active codes`} />
       </View>
       <FlatList
         data={bookings}
@@ -119,37 +119,27 @@ const MyBookingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  headerSubtitle: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
-  listContent: { padding: 20 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg },
+  headerWrap: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  listContent: { padding: Spacing.md },
   bookingCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
     marginBottom: 25,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
   },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#8E8E93', marginBottom: 15, textTransform: 'uppercase' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: Colors.textMuted, marginBottom: 15, textTransform: 'uppercase' },
   qrContainer: {
     padding: 15,
-    backgroundColor: '#FFF',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F2F2F7',
+    borderColor: Colors.border,
   },
-  detailsContainer: { width: '100%', marginTop: 20, borderTopWidth: 1, borderTopColor: '#F2F2F7', paddingTop: 15 },
+  detailsContainer: { width: '100%', marginTop: 20, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 15 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  label: { fontSize: 14, color: '#8E8E93' },
-  value: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F7' },
-  message: { fontSize: 18, color: '#8E8E93' },
+  label: { fontSize: 14, color: Colors.textMuted },
+  value: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
+  message: { fontSize: 18, color: Colors.textMuted },
 });
 
 export default MyBookingsScreen;

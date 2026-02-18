@@ -1,7 +1,10 @@
 import axios from 'axios';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import PrimaryButton from '../components/ui/PrimaryButton';
+import { Colors, Radius, Spacing } from '../theme/design';
 
 const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [message, setMessage] = useState('');
@@ -72,17 +75,13 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <Pressable onPress={goBackSafe} hitSlop={12} style={styles.iconButton}>
-            <Icon name="chevron-back" size={22} color="#111827" />
-          </Pressable>
-        </View>
-        <Text style={styles.title}>AI Assistant</Text>
-        <Text style={styles.subtitle}>Ask anything about washes, repairs, or car care.</Text>
-      </View>
+      <AppHeader
+        title="AI Assistant"
+        subtitle="Ask anything about washes, repairs, or car care."
+        onBack={goBackSafe}
+      />
 
-      <View style={styles.card}>
+      <AppCard>
         <Text style={styles.label}>Question</Text>
         <TextInput
           style={styles.input}
@@ -92,42 +91,23 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           placeholder="Example: What repair should I do if brakes squeak?"
           placeholderTextColor="#9CA3AF"
         />
+        <PrimaryButton onPress={askAssistant} label={loading ? 'Thinking...' : 'Ask AI'} loading={loading} />
+      </AppCard>
 
-        <Pressable onPress={askAssistant} style={[styles.askBtn, loading && styles.disabled]} disabled={loading}>
-          <Text style={styles.askBtnText}>{loading ? 'Thinking...' : 'Ask AI'}</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.card}>
+      <AppCard>
         <Text style={styles.label}>Answer</Text>
         <Text style={styles.answer}>{answer || 'Your AI response will appear here.'}</Text>
-      </View>
+      </AppCard>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  content: { padding: 16, gap: 14 },
-  header: { backgroundColor: '#fff', borderRadius: 14, padding: 16 },
-  headerTopRow: { flexDirection: 'row', justifyContent: 'flex-start' },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffffee',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { fontSize: 22, fontWeight: '800', color: '#111827', marginTop: 8 },
-  subtitle: { marginTop: 4, color: '#6B7280', fontSize: 14 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 16 },
-  label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  input: { minHeight: 110, borderRadius: 10, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, color: '#111827', textAlignVertical: 'top' },
-  askBtn: { marginTop: 12, backgroundColor: '#4F46E5', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  askBtnText: { color: '#fff', fontWeight: '800' },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  content: { padding: Spacing.md, gap: Spacing.md },
+  label: { fontSize: 14, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  input: { minHeight: 110, borderRadius: Radius.sm, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, color: Colors.text, textAlignVertical: 'top' },
   answer: { color: '#374151', fontSize: 14, lineHeight: 21 },
-  disabled: { opacity: 0.6 },
 });
 
 export default AIAssistantScreen;
