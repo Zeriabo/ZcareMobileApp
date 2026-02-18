@@ -1,5 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CardForm, useStripe } from '@stripe/stripe-react-native';
+import axios from 'axios';
 import React, { useLayoutEffect, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -18,9 +19,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { createBooking } from '../redux/actions/BookingActions';
+import { getStripeCustomerId, saveStripeCustomerId } from '../utils/storage';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
-  const { confirmPayment } = useStripe();
+  const { confirmPayment, confirmSetupIntent } = useStripe();
   const dispatch = useDispatch<any>();
 
   const [selectedCar, setSelectedCar] = useState<any>(null);
@@ -28,6 +30,10 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [saveCard, setSaveCard] = useState(false);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [savedCards, setSavedCards] = useState<any[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
 
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
@@ -37,6 +43,71 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
+
+  React.useEffect(() => {
+    const load = async () => {
+      const existingCustomerId = await getStripeCustomerId();
+      if (existingCustomerId) {
+        setCustomerId(existingCustomerId);
+        fetchSavedCards(existingCustomerId);
+      }
+    };
+    load();
+  }, []);
+
+  const fetchSavedCards = async (existingCustomerId: string) => {
+    if (!existingCustomerId) return;
+    setLoadingCards(true);
+    try {
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/payment/saved-cards`, {
+        params: { customerId: existingCustomerId },
+      });
+      setSavedCards(Array.isArray(response.data) ? response.data : []);
+    } catch {
+      setSavedCards([]);
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  const setupCardForFuture = async () => {
+    const payload = {
+      token: user?.token,
+      customerId,
+      name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Customer',
+      email: user?.email || '',
+    };
+
+    const setupIntentResponse = await axios.post(
+      `${process.env.EXPO_PUBLIC_SERVER_URL}/payment/create-setup-intent`,
+      payload
+    );
+
+    const setupClientSecret = setupIntentResponse?.data?.clientSecret;
+    const nextCustomerId = setupIntentResponse?.data?.customerId;
+
+    if (!setupClientSecret) {
+      throw new Error('Setup intent did not return a client secret');
+    }
+
+    if (nextCustomerId && nextCustomerId !== customerId) {
+      setCustomerId(nextCustomerId);
+      await saveStripeCustomerId(nextCustomerId);
+    }
+
+    const setupResult = await (confirmSetupIntent as any)(setupClientSecret, {
+      paymentMethodType: 'Card',
+      paymentMethodData: {
+        billingDetails: { name: payload.name },
+      },
+    });
+
+    if (setupResult?.error) {
+      throw new Error(setupResult.error.message || 'Could not save card');
+    }
+
+    await fetchSavedCards(nextCustomerId || customerId || '');
+  };
 
   // Helper to show the car selection menu
   const showVehiclePicker = () => {
@@ -79,6 +150,10 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
     setLoading(true);
     try {
+      if (saveCard) {
+        await setupCardForFuture();
+      }
+
       const result = await (confirmPayment as any)(clientSecret, {
         paymentMethodType: 'Card',
         paymentMethodData: {
@@ -156,10 +231,32 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
             <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Payment Card</Text>
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => setSaveCard(prev => !prev)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.inputLabel}>Save this card for next time</Text>
+                <Text style={styles.inputValue}>{saveCard ? 'ON' : 'OFF'}</Text>
+              </TouchableOpacity>
               <CardForm
                 style={styles.stripeCard}
                 onFormComplete={(details: any) => setCardDetails(details)}
               />
+              {loadingCards ? (
+                <Text style={styles.savedCardHint}>Loading saved cards...</Text>
+              ) : savedCards.length > 0 ? (
+                <View style={styles.savedCardsWrap}>
+                  <Text style={styles.savedCardsTitle}>Saved cards</Text>
+                  {savedCards.map((card: any) => (
+                    <Text key={card.id} style={styles.savedCardItem}>
+                      {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.savedCardHint}>No saved cards yet.</Text>
+              )}
             </View>
 
             {showPicker && (
@@ -244,6 +341,10 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 15, color: '#374151', fontWeight: '600' },
   inputValue: { fontSize: 15, fontWeight: '700', color: '#4F46E5', maxWidth: '62%', textAlign: 'right' },
   stripeCard: { width: '100%', height: 220, marginTop: 8 },
+  savedCardsWrap: { marginTop: 10 },
+  savedCardsTitle: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
+  savedCardItem: { fontSize: 13, color: '#4B5563', marginBottom: 3 },
+  savedCardHint: { marginTop: 8, fontSize: 12, color: '#6B7280' },
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 14,
