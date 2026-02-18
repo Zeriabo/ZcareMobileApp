@@ -11,8 +11,8 @@ type CheckoutScreenNavigationProp = NativeStackNavigationProp<
   'CheckoutScreen'
 >;
 
-const CheckoutScreen = ({ route }: { route: any }) => {
-  const dispatch = useDispatch();
+const CheckoutScreen = () => {
+  const dispatch = useDispatch<any>();
   const pi = useSelector((state: any) => state.cart.pi);
   const navigation = useNavigation<CheckoutScreenNavigationProp>();
   const [loading, setLoading] = useState(false);

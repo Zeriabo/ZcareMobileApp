@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -21,30 +22,30 @@ type Props = {
 
 const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const dispatch = useDispatch<any>();
-  const { pi } = useSelector((state: any) => state.cart);
   const { user } = useSelector((state: any) => state.user);
   const selectedProgram = route.params.selectedProgram;
 
   const [program, setProgram] = useState<any>({});
-  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [loadingMedia, setLoadingMedia] = useState<boolean>(true);
+  const [initializingCheckout, setInitializingCheckout] = useState(false);
 
   useEffect(() => {
     setProgram({ ...selectedProgram });
   }, [selectedProgram]);
 
-  useEffect(() => {
-    if (pi && pi.paymentIntentId) {
-      setPaymentMethod(pi.paymentMethod);
-    } else {
-      setPaymentMethod('');
+  const handlePaymentMethodSelection = async (method: 'card' | 'apple_pay' | 'google_pay') => {
+    setInitializingCheckout(true);
+    try {
+      await dispatch(create_paymentIntent(selectedProgram, method));
+      navigation.navigate('CheckoutForm', { program: selectedProgram });
+    } catch (error: any) {
+      Alert.alert(
+        'Checkout unavailable',
+        error?.response?.data?.message || 'We could not initialize payment. Please try again.'
+      );
+    } finally {
+      setInitializingCheckout(false);
     }
-  }, [pi]);
-
-  const handlePaymentMethodSelection = (method: string) => {
-    setPaymentMethod(method);
-    dispatch(create_paymentIntent(selectedProgram, method));
-    navigation.navigate('CheckoutForm', { program: selectedProgram });
   };
 
   React.useLayoutEffect(() => {
@@ -112,7 +113,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 </Text>
 
 <Text style={styles.price}>
-  €{program.price?.toFixed(2)}
+  €{Number(program.price || 0).toFixed(2)}
 </Text>
 
 
@@ -120,10 +121,11 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
          <Button
   mode="contained"
   style={styles.paymentButton}
-  onPress={() => handlePaymentMethodSelection('credit_card')}
+  onPress={() => handlePaymentMethodSelection('card')}
+  disabled={initializingCheckout}
   buttonColor="#007AFF"
 >
-  Proceed to Payment
+  {initializingCheckout ? 'Preparing checkout...' : 'Proceed to Payment'}
 </Button>
 
           ) : (
@@ -141,6 +143,16 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1, backgroundColor: '#f8f8f8' },
   container: { paddingHorizontal: 20, paddingBottom: 30 },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

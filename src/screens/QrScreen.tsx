@@ -1,3 +1,4 @@
+import { RootStackParamList } from '../redux/types/stackParams';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,9 +11,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    fontSize: 18,
-    marginBottom: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    marginBottom: 8,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  subText: {
+    fontSize: 14,
+    marginBottom: 22,
+    color: '#6B7280',
   },
   backBtn: {
     marginTop: 30,
@@ -28,10 +35,10 @@ const styles = StyleSheet.create({
   },
 });
 
-type Props = NativeStackScreenProps<any, 'QrScreen'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'QrScreen'>;
 
 const QrScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { qrCode, executed } = route.params;
+  const { qrCode, executed } = route.params || {};
 
   if (!qrCode || executed) {
     return (
@@ -48,6 +55,7 @@ const QrScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Your QR Code</Text>
+      <Text style={styles.subText}>Show this code at the station to start your wash.</Text>
 
       <QRCode value={qrCode} size={250} />
 

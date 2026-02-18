@@ -21,7 +21,7 @@ import { createBooking } from '../redux/actions/BookingActions';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const { confirmPayment } = useStripe();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
 
   const [selectedCar, setSelectedCar] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -32,7 +32,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
   const user = useSelector((state: any) => state.user?.user);
-  const stationId = useSelector((state: any) => state.station?.selectedStation);
+  const stationId = useSelector((state: any) => state.station?.selectedStation.id);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -56,21 +56,30 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     );
   };
 
+  const resolveClientSecret = (pi: any): string | null => {
+    if (!pi) return null;
+    if (typeof pi === 'string') return pi;
+    return pi.clientSecret || pi.client_secret || pi.paymentIntentClientSecret || null;
+  };
+
   const handlePayment = async () => {
     if (!selectedCar) return Alert.alert('Error', 'Please select a car');
     if (!cardDetails?.complete) return Alert.alert('Error', 'Please enter valid card details');
     
     const today = new Date();
     today.setHours(0,0,0,0);
-    if (selectedDate.setHours(0,0,0,0) < today) {
+    const selectedDateOnly = new Date(selectedDate);
+    selectedDateOnly.setHours(0, 0, 0, 0);
+    if (selectedDateOnly.getTime() < today.getTime()) {
         return Alert.alert('Error', 'Please select a future date');
     }
     
-    if (!paymentIntent) return Alert.alert('Error', 'Payment session expired.');
+    const clientSecret = resolveClientSecret(paymentIntent);
+    if (!clientSecret) return Alert.alert('Error', 'Payment session expired. Please go back and try again.');
 
     setLoading(true);
     try {
-      const result = await confirmPayment(paymentIntent, {
+      const result = await (confirmPayment as any)(clientSecret, {
         paymentMethodType: 'Card',
         paymentMethodData: {
           card: cardDetails,
@@ -89,8 +98,9 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         };
 
         const bookingResponse: any = await dispatch(createBooking(bookingPayload));
-        if (bookingResponse?.qrCode) {
-          navigation.navigate('QrScreen', { qrCode: bookingResponse.qrCode });
+        const qrCode = bookingResponse?.qrCode || bookingResponse?.qr_code;
+        if (qrCode) {
+          navigation.replace('QrScreen', { qrCode });
         } else {
           Alert.alert('Booking Error', 'Payment succeeded but booking failed.');
         }
@@ -109,46 +119,46 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-            
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-                <Text style={styles.closeIcon}>✕</Text>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Text style={styles.backIcon}>←</Text>
               </TouchableOpacity>
-              <View style={styles.headerTextCenter}>
-                <Text style={styles.headerSubtitle}>Confirm Booking</Text>
-                <Text style={styles.headerTitle}>{route.params?.program?.name || 'Wash Program'}</Text>
+              <Text style={styles.headerTitle}>Checkout</Text>
+              <View style={{ width: 36 }} />
+            </View>
+
+            <View style={styles.programCard}>
+              <Text style={styles.headerSubtitle}>Selected Program</Text>
+              <Text style={styles.programName}>{route.params?.program?.name || 'Wash Program'}</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.currency}>€</Text>
+                <Text style={styles.priceText}>{Number(route.params?.program?.price || 0).toFixed(2)}</Text>
               </View>
-              <View style={{ width: 40 }} />
             </View>
 
-            <View style={styles.priceContainer}>
-              <Text style={styles.currency}>€</Text>
-              <Text style={styles.priceText}>{route.params?.program?.price || '0.00'}</Text>
-            </View>
-
-            <View style={styles.section}>
+            <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Booking Details</Text>
-              
-              <TouchableOpacity style={styles.inputRow} onPress={() => setShowPicker(true)}>
+
+              <TouchableOpacity style={styles.inputRow} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
                 <Text style={styles.inputLabel}>Date</Text>
                 <Text style={styles.inputValue}>{selectedDate.toDateString()}</Text>
               </TouchableOpacity>
 
-              {/* CLEAN VEHICLE SELECTION */}
-              <TouchableOpacity style={styles.inputRow} onPress={showVehiclePicker}>
+              <TouchableOpacity style={styles.inputRow} onPress={showVehiclePicker} activeOpacity={0.8}>
                 <Text style={styles.inputLabel}>Vehicle</Text>
                 <Text style={[styles.inputValue, !selectedCar && { color: '#8E8E93' }]}>
-                  {selectedCar ? cars.find((c: any) => c.carId === selectedCar)?.manufacture : 'Select Car'}
+                  {selectedCar
+                    ? `${cars.find((c: any) => c.carId === selectedCar)?.manufacture || 'Car'} (${cars.find((c: any) => c.carId === selectedCar)?.registerationPlate || 'No Plate'})`
+                    : 'Select Car'}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.section}>
+            <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Payment Card</Text>
               <CardForm
                 style={styles.stripeCard}
-                postalCodeEnabled
-                onFormComplete={(details) => setCardDetails(details)}
+                onFormComplete={(details: any) => setCardDetails(details)}
               />
             </View>
 
@@ -157,7 +167,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                 value={selectedDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, date) => {
+                onChange={(_event, date) => {
                   setShowPicker(false);
                   if (date) setSelectedDate(date);
                 }}
@@ -182,33 +192,67 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeContainer: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollContainer: { paddingHorizontal: 20, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 20 },
-  closeButton: { padding: 10 },
-  closeIcon: { fontSize: 22, color: '#1C1C1E' },
-  headerTextCenter: { alignItems: 'center', flex: 1 },
-  headerSubtitle: { color: '#8E8E93', fontSize: 13, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
-  priceContainer: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', marginVertical: 25 },
-  currency: { fontSize: 24, fontWeight: '600', color: '#007AFF' },
-  priceText: { fontSize: 52, fontWeight: '800', color: '#1C1C1E' },
-  section: { marginBottom: 30 },
-  sectionLabel: { fontSize: 12, fontWeight: '600', color: '#8E8E93', marginBottom: 8, textTransform: 'uppercase' },
+  safeContainer: { flex: 1, backgroundColor: '#EEF2FF' },
+  scrollContainer: { paddingHorizontal: 16, paddingBottom: 34 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 16 },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backIcon: { fontSize: 18, color: '#111827', fontWeight: '700' },
+  headerSubtitle: { color: '#6B7280', fontSize: 12, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  programCard: {
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  programName: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 6 },
+  currency: { fontSize: 20, fontWeight: '700', color: '#818CF8' },
+  priceText: { fontSize: 40, fontWeight: '900', color: '#fff', marginLeft: 4 },
+  sectionCard: {
+    marginBottom: 14,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 55,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
-  inputLabel: { fontSize: 16, color: '#3A3A3C' },
-  inputValue: { fontSize: 16, fontWeight: '500', color: '#007AFF' },
-  stripeCard: { width: '100%', height: 220, marginTop: 10 },
-  footer: { padding: 20, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#C6C6C8', backgroundColor: '#FFF' },
-  payButton: { backgroundColor: '#007AFF', height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  payButtonText: { color: '#FFF', fontWeight: '700', fontSize: 18 },
+  inputLabel: { fontSize: 15, color: '#374151', fontWeight: '600' },
+  inputValue: { fontSize: 15, fontWeight: '700', color: '#4F46E5', maxWidth: '62%', textAlign: 'right' },
+  stripeCard: { width: '100%', height: 220, marginTop: 8 },
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#D1D5DB',
+    backgroundColor: '#FFFFFFF2',
+  },
+  payButton: { backgroundColor: '#4F46E5', height: 56, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  payButtonText: { color: '#FFF', fontWeight: '800', fontSize: 18 },
 });
 
 export default CheckoutForm;

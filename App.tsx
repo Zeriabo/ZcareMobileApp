@@ -13,14 +13,11 @@ import MessageDisplay from './src/components/MessageDisplay';
 import './src/config/firebase';
 import store from './src/redux/store';
 import BuywashScreen from './src/screens/BuywashScreen';
-import CheckoutScreen from './src/screens/CheckoutScreen';
-import PaymentConfirmation from './src/screens/PaymentConfirmation';
-import PaymentScreen from './src/screens/PaymentScreen';
 import RegisterCarScreen from './src/screens/RegisterCarScreen';
 import StationPage from './src/screens/StationPage';
-
 // Redux actions and helpers
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, onMessage } from '@react-native-firebase/messaging';
+import { TamaguiProvider, Theme } from 'tamagui';
 import AddCar from './src/components/AddCar';
 import BottomTabs from './src/components/BottomTabs';
 import { SocketProvider } from './src/config/SocketProvider';
@@ -30,6 +27,7 @@ import QrScreen from './src/screens/QrScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import { getSession } from './src/utils/storage';
+import { tamaguiConfig } from './tamagui.config';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const STRIPE_PUBLISHABLE_KEY =
@@ -39,21 +37,27 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
+       <TamaguiProvider config={tamaguiConfig}>
+        <Theme name="light">
+
     <SafeAreaProvider>
       <Provider store={store}>
         <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
         <AppContent />
       </Provider>
     </SafeAreaProvider>
+        </Theme>
+       </TamaguiProvider>
   );
 }
 
 function AppContent() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const [isRestoring, setIsRestoring] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = messaging().onMessage(async remoteMessage => {
+    const messagingInstance = getMessaging();
+    const unsubscribe = onMessage(messagingInstance, async remoteMessage => {
       Alert.alert(
         remoteMessage.notification?.title || "Notification",
         remoteMessage.notification?.body || ""
@@ -97,9 +101,6 @@ function AppContent() {
             <RootStack.Screen name="StationPage" component={StationPage} />
             <RootStack.Screen name="Buywash" component={BuywashScreen} />
             <RootStack.Screen name="RegisterCar" component={RegisterCarScreen} />
-            <RootStack.Screen name="CheckoutScreen" component={CheckoutScreen} />
-            <RootStack.Screen name="PaymentScreen" component={PaymentScreen} />
-            <RootStack.Screen name="PaymentConfirmation" component={PaymentConfirmation} />
             <RootStack.Screen name="CheckoutForm" component={CheckoutForm} />
             <RootStack.Screen name="QrScreen" component={QrScreen} />
             <RootStack.Screen name="AddCar" component={AddCar} />

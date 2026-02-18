@@ -60,6 +60,7 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
       );
 
       dispatch({ type: 'PAYMENT_INTENT_SUCCESS', payload: response.data });
+      return response.data;
     } catch (error: any) {
       dispatch(
         addMessage({
@@ -69,6 +70,7 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
         })
       );
       setTimeout(() => dispatch(clearMessages()), 2000);
+      throw error;
     }
   };
 };
