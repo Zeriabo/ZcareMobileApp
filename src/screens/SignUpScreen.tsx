@@ -3,7 +3,6 @@ import { View, StyleSheet, ImageBackground } from 'react-native';
 import { TextInput, Button, Text, Snackbar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
-import { addMessage, clearMessages } from '../redux/types/messageActionTypes';
 import { signUp } from '../redux/actions/AuthActions';
 
 const SignUpScreen: React.FC = () => {
@@ -17,7 +16,7 @@ const SignUpScreen: React.FC = () => {
   const [snackbarVisible, setSnackbarVisible] = useState<boolean>(false);
 
   const navigation = useNavigation();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
 
   const handleSignUp = () => {
     const user = {
@@ -63,7 +62,6 @@ const SignUpScreen: React.FC = () => {
           label="First Name"
           value={firstName}
           onChangeText={setFirstName}
-          left={<TextInput.Icon name="account" />}
           style={styles.input}
         />
         <TextInput
@@ -71,7 +69,6 @@ const SignUpScreen: React.FC = () => {
           label="Last Name"
           value={lastName}
           onChangeText={setLastName}
-          left={<TextInput.Icon name="account" />}
           style={styles.input}
         />
         <TextInput
@@ -79,7 +76,6 @@ const SignUpScreen: React.FC = () => {
           label="Secret Question"
           value={secretQuestion}
           onChangeText={setSecretQuestion}
-          left={<TextInput.Icon name="help-circle" />}
           style={styles.input}
         />
         <TextInput
@@ -87,7 +83,6 @@ const SignUpScreen: React.FC = () => {
           label="Secret Answer"
           value={secretAnswer}
           onChangeText={setSecretAnswer}
-          left={<TextInput.Icon name="check" />}
           style={styles.input}
         />
         <TextInput
@@ -95,7 +90,6 @@ const SignUpScreen: React.FC = () => {
           label="Username"
           value={username}
           onChangeText={setUsername}
-          left={<TextInput.Icon name="account-circle" />}
           style={styles.input}
         />
         <TextInput
@@ -104,7 +98,6 @@ const SignUpScreen: React.FC = () => {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          left={<TextInput.Icon name="lock" />}
           style={styles.input}
         />
         <TextInput
@@ -112,7 +105,6 @@ const SignUpScreen: React.FC = () => {
           label="Date of Birth"
           value={dateOfBirth}
           onChangeText={setDateOfBirth}
-          left={<TextInput.Icon name="calendar" />}
           style={styles.input}
         />
 

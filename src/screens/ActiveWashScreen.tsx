@@ -2,9 +2,9 @@ import { useNavigation } from '@react-navigation/native';
 import LottieView from 'lottie-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import carWashAnimation from '../assets/animations/car_wash.json';
+const carWashAnimation = require('../assets/animations/car_wash.json');
 const ActiveWashScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const progress = useRef(new Animated.Value(0)).current;
   const [completed, setCompleted] = useState(false);
 
