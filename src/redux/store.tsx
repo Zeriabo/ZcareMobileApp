@@ -11,9 +11,9 @@ import { programsReducer } from './reducers/programsReducer';
 import stationReducer from './reducers/stationReducer';
 import stationsReducer from './reducers/stationsReducer';
 import washesReducer from './reducers/washesReducer';
-import { RootState } from './types/RootState';
+import { RootState as RootStateShape } from './types/rootState';
 
-const persistConfig: PersistConfig<RootState> = {
+const persistConfig: PersistConfig<RootStateShape> = {
   key: 'root',
   storage: AsyncStorage,
   whitelist: ['user'], 
@@ -31,7 +31,7 @@ const rootReducer:any = combineReducers({
   programsState: programsReducer,
 });
 
-const persistedReducer = persistReducer<RootState>(persistConfig, rootReducer);
+const persistedReducer = persistReducer<RootStateShape>(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
@@ -44,6 +44,7 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 export type AppDispatch = typeof store.dispatch;
-export type RootStateType = RootState;
+export type RootState = RootStateShape;
+export type RootStateType = RootStateShape;
 
 export default store;

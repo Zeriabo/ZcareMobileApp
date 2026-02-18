@@ -39,6 +39,10 @@ export interface Station {
   id: string;
   name: string;
   address: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  lat?: number | string;
+  lng?: number | string;
   media?: Media;
 }
 
@@ -62,6 +66,10 @@ export interface CarWashingProgram {
   programType: string;
   id: number;
   name: string;
+  price?: number | string;
+  media?: {
+    picture?: string;
+  };
 }
 export interface FetchProgramsRequestAction {
   type: typeof FETCH_PROGRAMS_REQUEST;

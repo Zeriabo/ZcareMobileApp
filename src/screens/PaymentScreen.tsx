@@ -10,7 +10,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const { confirmPayment } = useStripe();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
 
   const handlePayPress = async () => {
     if (!cardDetails?.complete) {
@@ -39,10 +39,12 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
       const clientSecret = response.data;
 
       // 2️⃣ Confirm payment on device
-      const { paymentIntent, error } = await confirmPayment(clientSecret, {
-        type: 'Card',
-        billingDetails: {
-          name: user?.name ?? 'Customer',
+      const { paymentIntent, error } = await (confirmPayment as any)(clientSecret, {
+        paymentMethodType: 'Card',
+        paymentMethodData: {
+          billingDetails: {
+            name: user?.name ?? 'Customer',
+          },
         },
       });
 
@@ -51,7 +53,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
         return;
       }
 
-      if (paymentIntent?.status === 'Succeeded' || paymentIntent?.status === 'succeeded') {
+      if (String(paymentIntent?.status || '').toLowerCase() === 'succeeded') {
        
 
         // 3️⃣ Create booking on backend (and receive QR code)
@@ -63,7 +65,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
         };
 
         const bookingResponse = await axios.post(
-          `${Config.REACT_APP_SERVER_URL}/bookings`,
+          `${process.env.EXPO_PUBLIC_SERVER_URL}/bookings`,
           bookingDto
         );
 
@@ -95,8 +97,8 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
       {!qrCode ? (
         <>
           <CardField
-            postalCodeEnabled
-            placeholder={{ number: '4242 4242 4242 4242' }}
+            postalCodeEnabled={true}
+            placeholders={{ number: '4242 4242 4242 4242' }}
             cardStyle={{ backgroundColor: '#FFFFFF', textColor: '#000000' }}
             style={{ width: '100%', height: 50, marginVertical: 30 }}
             onCardChange={(card) => setCardDetails(card)}

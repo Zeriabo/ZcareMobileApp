@@ -5,7 +5,7 @@ import YearPicker from 'react-native-month-year-picker';
 import {useDispatch, useSelector} from 'react-redux';
 import {getUserCars, registerCar} from '../redux/actions/carActions';
 import Car from '../redux/types/CarType';
-import {NavigationProp, RouteProp} from '@react-navigation/native';
+import {NavigationProp} from '@react-navigation/native';
 
 interface Props {
   navigation: NavigationProp<any>;
@@ -16,7 +16,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
   const [dateOfManufacture, setDateOfManufacture] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const token = useSelector((state: any) => state.user.user.token);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const showDatePicker = () => {
     setDatePickerVisible(true);
   };
@@ -25,7 +25,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
     setDatePickerVisible(false);
   };
 
-  const handleDateChange = (event, selectedDate) => {
+  const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (selectedDate !== undefined) {
       setDateOfManufacture(selectedDate);
     }

@@ -7,14 +7,24 @@ import {
 
 
 export interface WashesState {  
-  washes: Wash[] | null;
+  washes: Wash[];
+  loading: boolean;
+  error: string | null;
 }
 const initialState: WashesState = {
-  washes: null,
+  washes: [],
+  loading: false,
+  error: null,
 };
 
 const washesReducer = (state = initialState, action: any) => {
   switch (action.type) {
+    case 'FETCH_WASHES_REQUEST':
+      return {
+        ...state,
+        loading: true,
+        error: null,
+      };
     case SELECT_WASHES:
       return {
         ...state,
@@ -24,12 +34,16 @@ const washesReducer = (state = initialState, action: any) => {
     case FETCH_WASHES_SUCCESS:
       return {
         ...state,
+        loading: false,
         washes: action.payload,
+        error: null,
       };
     case FETCH_WASHES_FAILURE:
       return {
         ...state,
+        loading: false,
         washes: [],
+        error: action.error || 'Failed to fetch washes',
       };
     case 'SIGN_OUT':
       return {

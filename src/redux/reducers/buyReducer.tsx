@@ -1,4 +1,4 @@
-import { BuyState } from "../types/RootState";
+import { BuyState } from '../types/rootState';
 
 
 

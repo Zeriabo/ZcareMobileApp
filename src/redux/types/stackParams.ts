@@ -8,8 +8,8 @@ export type RootStackParamList = {
   CheckoutScreen: undefined;
   PaymentScreen: undefined;
   PaymentConfirmation: undefined;
-  CheckoutForm: undefined;
-  QrScreen: undefined;
+  CheckoutForm: { program?: CarWashingProgram } | undefined;
+  QrScreen: { qrCode?: string; executed?: boolean } | undefined;
   SignIn: undefined;
   SignUp:undefined;
   AddCar:undefined;
