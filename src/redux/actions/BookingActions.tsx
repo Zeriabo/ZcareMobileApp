@@ -122,6 +122,8 @@ export const updateBooking = (bookingId: any, booking: any) => {
       const base = process.env.EXPO_PUBLIC_SERVER_URL;
       let response: any;
       const attempts = [
+        () => axios.patch(`${base}/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => axios.patch(`${base}/booking/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
         () => axios.put(`${base}/booking/${bookingId}`, booking),
         () => axios.put(`${base}/v1/bookings/${bookingId}`, booking),
         () => axios.patch(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
