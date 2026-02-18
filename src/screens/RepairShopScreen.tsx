@@ -31,6 +31,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   const { shop } = route.params;
   const user = useSelector((state: RootState) => state.user.user as any);
   const cars = useSelector((state: RootState) => state.cars.cars as any[]);
+  const selectedStationId = useSelector((state: RootState) => (state as any).station?.selectedStation?.id ?? null);
 
   const [selectedCarId, setSelectedCarId] = useState<number | null>(cars[0]?.carId ?? null);
   const [scheduleAt, setScheduleAt] = useState<string>(new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16));
@@ -125,15 +126,23 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
     setLoading(true);
     try {
+      const localDateTime = (() => {
+        const dt = new Date(scheduleAt);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const ms = String(dt.getMilliseconds()).padStart(3, '0');
+        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}.${ms}`;
+      })();
+
       const payload = {
         carId: selectedCarId,
         userId: user.id,
+        stationId: selectedStationId,
         repairShopId: shop.id,
         repairSkuId: selectedRepairId,
         repairItemName: selectedRepair?.name,
         repairPriceAmount: selectedRepair?.priceAmount ?? 0,
         repairPriceCurrency: selectedRepair?.priceCurrency || 'EUR',
-        scheduledTime: new Date(scheduleAt).toISOString(),
+        scheduledTime: localDateTime,
         token: user.token,
       };
 

@@ -31,28 +31,50 @@ const MyBookingsScreen: React.FC = () => {
     }, [dispatch, userState])
   );
 
-  const renderBookingItem = ({ item }: { item: any }) => (
+  const renderBookingItem = ({ item }: { item: any }) => {
+    const isRepairTicket =
+      item.bookingType === 'REPAIR' ||
+      !!item.repairShopId ||
+      !!item.repairItemName ||
+      !item.washingProgramId;
+
+    return (
     <View style={styles.bookingCard}>
-      <Text style={styles.cardTitle}>Wash Ticket</Text>
+      <Text style={styles.cardTitle}>
+        {isRepairTicket ? 'Repair Ticket' : 'Wash Ticket'}
+      </Text>
       <View style={styles.qrContainer}>
         <QRCode value={item.qr_code || item.qrCode || 'No Data'} size={180} backgroundColor="white" />
       </View>
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Station</Text>
-          <Text style={styles.value}>{item.stationName}</Text>
+          <Text style={styles.label}>
+            {isRepairTicket ? 'Repair station' : 'Station'}
+          </Text>
+          <Text style={styles.value}>
+            {isRepairTicket
+              ? (item.repairShopName || item.shopName || item.stationName || item.repairShopId || '-')
+              : (item.stationName || '-')}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.label}>Vehicle registration</Text>
-          <Text style={styles.value}>{item.carRegistrationPlate}</Text>
+          <Text style={styles.value}>{item.carRegistrationPlate || '-'}</Text>
         </View>
+        {isRepairTicket && (
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Repair</Text>
+            <Text style={styles.value}>{item.repairItemName || '-'}</Text>
+          </View>
+        )}
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
           <Text style={[styles.value, { color: '#34C759' }]}>Active</Text>
         </View>
       </View>
     </View>
-  );
+    );
+  };
 
   // Skeleton Loader
   const BookingSkeleton = () => (
@@ -82,7 +104,7 @@ const MyBookingsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Wash Tickets</Text>
+        <Text style={styles.headerTitle}>Booking tickets</Text>
         <Text style={styles.headerSubtitle}>{bookings.length} active codes</Text>
       </View>
       <FlatList
