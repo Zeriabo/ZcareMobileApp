@@ -9,10 +9,18 @@ import * as Location from 'expo-location';
 import markerIcon from '../assets/images/wash-washing.png';
 
 const Main: React.FC<any> = ({ navigation }) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<any>();
   const stations: Station[] = useSelector<RootState, Station[]>(
     state => state.stations.stations
   );
+  const normalizedStations = stations
+    .map(station => {
+      const latitude = Number(station.latitude ?? station.lat);
+      const longitude = Number(station.longitude ?? station.lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      return { ...station, latitude, longitude };
+    })
+    .filter((station): station is Station & { latitude: number; longitude: number } => Boolean(station));
 
   const [initialRegion, setInitialRegion] = useState<Region | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,7 +75,7 @@ const Main: React.FC<any> = ({ navigation }) => {
     <View style={styles.container}>
       <Text style={styles.title}>Zwash</Text>
       <MapView style={styles.map} initialRegion={initialRegion}>
-        {stations.map(station => (
+        {normalizedStations.map(station => (
           <Marker
             key={station.id}
             coordinate={{
