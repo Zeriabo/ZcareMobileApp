@@ -49,7 +49,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
   const user = useSelector((state: any) => state.user?.user);
-  const stationId = useSelector((state: any) => state.station?.selectedStation.id);
+  const stationId = useSelector((state: any) => state.station?.selectedStation?.id ?? null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -142,6 +142,49 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       () => axios.post(`${base}/payment/saved-cards/delete`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
     ]);
     await tryRequests(candidates);
+  };
+
+  const persistSavedCardAfterPayment = async (paymentIntent: any) => {
+    const paymentMethodId =
+      paymentIntent?.paymentMethodId ||
+      paymentIntent?.paymentMethod ||
+      paymentIntent?.payment_method ||
+      null;
+
+    if (!paymentMethodId) return;
+
+    const payload = {
+      customerId: customerId || undefined,
+      stripeCustomerId: customerId || undefined,
+      userId: user?.id || undefined,
+      email: user?.email || undefined,
+      paymentMethodId,
+      setDefault: true,
+      makeDefault: true,
+      token: user?.token,
+    };
+
+    const response = await tryRequests(
+      getApiBases().flatMap(base => [
+        () => axios.post(`${base}/payment/saved-cards/attach`, payload, { headers: withAuthHeaders() }),
+        () => axios.post(`${base}/payment/saved-cards`, payload, { headers: withAuthHeaders() }),
+        () => axios.post(`${base}/payment/save-card`, payload, { headers: withAuthHeaders() }),
+      ])
+    );
+
+    const nextCustomerId =
+      response?.data?.customerId ||
+      response?.data?.customer ||
+      response?.data?.stripeCustomerId ||
+      response?.data?.customer_id ||
+      null;
+
+    const effectiveCustomerId = nextCustomerId || customerId || '';
+    if (nextCustomerId && nextCustomerId !== customerId) {
+      setCustomerId(nextCustomerId);
+      await saveStripeCustomerId(nextCustomerId);
+    }
+    await fetchSavedCards(effectiveCustomerId);
   };
 
   const setupCardForFuture = async () => {
@@ -271,6 +314,17 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           });
 
       if (result?.paymentIntent?.status?.toLowerCase() === 'succeeded') {
+        if (saveCard) {
+          try {
+            await persistSavedCardAfterPayment(result.paymentIntent);
+            setSaveCardStatus('Card saved for next time.');
+          } catch {
+            if (!saveCardStatus) {
+              setSaveCardStatus('Could not save card.');
+            }
+          }
+        }
+
         let bookingResponse: any;
         if (isRepairCheckout) {
           const dt = selectedDate;

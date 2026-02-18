@@ -37,6 +37,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   const user = useSelector((state: RootState) => state.user.user as any);
   const cars = useSelector((state: RootState) => state.cars.cars as any[]);
   const selectedStationId = useSelector((state: RootState) => (state as any).station?.selectedStation?.id ?? null);
+  const washPrograms = useSelector((state: RootState) => (state as any).programsState?.programs || []);
 
   const [selectedCarId, setSelectedCarId] = useState<number | null>(cars[0]?.carId ?? null);
   const [scheduleAt, setScheduleAt] = useState<string>(new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16));
@@ -156,6 +157,8 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         name: selectedRepair?.name || 'Repair service',
         price: selectedRepair?.priceAmount ?? 0,
         programType: 'repair',
+        paymentProgramId: Number(washPrograms?.[0]?.id) || 1,
+        paymentProgramType: String(washPrograms?.[0]?.programType || 'foam'),
       };
 
       await dispatch(create_paymentIntent(checkoutProgram, 'card'));

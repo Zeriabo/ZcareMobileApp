@@ -39,13 +39,20 @@ export const checkout = (program: any) => {
 export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' | 'google_pay') => {
   return async (dispatch: Dispatch<any>) => {
     const paymentMethodType = method === 'card' ? 'credit_card' : method;
+    const allowedProgramTypes = new Set(['foam', 'high_pressure', 'touchless', 'touch_less']);
+    const requestedProgramType = String(program?.paymentProgramType || program?.programType || '');
+    const safeProgramType = allowedProgramTypes.has(requestedProgramType)
+      ? requestedProgramType
+      : 'foam';
+    const safeProgramId = Number(program?.paymentProgramId ?? program?.id);
+    const safePrice = Number(program?.price);
 
     const paymentRequest = {
       program: {
-        id: program.id,
-        name: program.name,
-        price: program.price, 
-        programType: program.programType,
+        id: Number.isFinite(safeProgramId) && safeProgramId > 0 ? safeProgramId : 1,
+        name: String(program?.name || 'Service'),
+        price: Number.isFinite(safePrice) ? safePrice : 0,
+        programType: safeProgramType,
       },
       paymentMethod: {
         paymentMethodType, 
