@@ -1,5 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,8 +13,10 @@ const { width } = Dimensions.get('window');
 const MyBookingsScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
   const userState = useSelector((state: RootState) => state.user.user);
-  const bookings = useSelector((state: RootState) =>
-    state.booking.bookings.filter(b => !b.executed)
+  const allBookings = useSelector((state: RootState) => state.booking.bookings);
+  const bookings = useMemo(
+    () => allBookings.filter(b => !b.executed),
+    [allBookings]
   );
 
   const [loading, setLoading] = useState(true);
