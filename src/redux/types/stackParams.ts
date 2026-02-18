@@ -1,4 +1,5 @@
 import { CarWashingProgram, Station } from './stationsActionTypes';
+import { RepairShop } from '../../types/repair';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -13,4 +14,6 @@ export type RootStackParamList = {
   SignIn: undefined;
   SignUp:undefined;
   AddCar:undefined;
+  RepairShop: { shop: RepairShop };
+  AIAssistant: undefined;
 };

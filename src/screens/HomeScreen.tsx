@@ -21,6 +21,7 @@ import { fetchBookings } from '../redux/actions/BookingActions';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
+import { RepairShop } from '../types/repair';
 import { calculateDistanceKm } from '../utils/calulations';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -29,14 +30,6 @@ interface Props {
 }
 
 type NormalizedStation = Station & { latitude: number; longitude: number };
-type RepairShop = {
-  id: string;
-  name: string;
-  location: string;
-  latitude: number;
-  longitude: number;
-  servicesOffered: string[];
-};
 
 type MarkerCluster = {
   id: string;
@@ -407,11 +400,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {nearestDistanceKm !== null ? `${nearestDistanceKm.toFixed(1)} km closest` : 'Enable location for distance'}
           </Text>
         </View>
-        <Pressable onPress={refreshCurrentList} style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshButtonPressed]}>
-          <Text style={styles.refreshButtonText}>
-            {serviceType === 'wash' ? (stationsLoading ? 'Refreshing...' : 'Refresh') : repairLoading ? 'Refreshing...' : 'Refresh'}
-          </Text>
-        </Pressable>
+        <View style={styles.summaryActions}>
+          <Pressable onPress={() => navigation.navigate('AIAssistant')} style={({ pressed }) => [styles.aiButton, pressed && styles.refreshButtonPressed]}>
+            <Text style={styles.aiButtonText}>AI</Text>
+          </Pressable>
+          <Pressable onPress={refreshCurrentList} style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshButtonPressed]}>
+            <Text style={styles.refreshButtonText}>
+              {serviceType === 'wash' ? (stationsLoading ? 'Refreshing...' : 'Refresh') : repairLoading ? 'Refreshing...' : 'Refresh'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.switchContainer}>
@@ -482,7 +480,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               coordinate={{ latitude: shop.latitude, longitude: shop.longitude }}
               title={shop.name}
               description={shop.location}
-              onPress={() => focusRepairShop(shop)}
+              onPress={() => navigation.navigate('RepairShop', { shop })}
             >
               <View style={styles.repairPin}>
                 <Text style={styles.repairPinText}>R</Text>
@@ -542,8 +540,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       <Pressable onPress={() => focusRepairShop(shop)} style={styles.focusButton}>
                         <Text style={styles.focusButtonText}>Focus</Text>
                       </Pressable>
-                      <Pressable onPress={() => openNavigation(shop.latitude, shop.longitude)} style={styles.openButton}>
-                        <Text style={styles.openButtonText}>Route</Text>
+                      <Pressable onPress={() => navigation.navigate('RepairShop', { shop })} style={styles.openButton}>
+                        <Text style={styles.openButtonText}>Open</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -646,6 +644,21 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   refreshButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryActions: {
+    gap: 8,
+  },
+  aiButton: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  aiButtonText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',

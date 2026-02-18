@@ -99,7 +99,7 @@ export default function AddCar() {
             transition={{ type: 'spring', damping: 15, stiffness: 120 }}
           >
             <Button
-              size="$fit"
+              size="$4"
               backgroundColor="$green10"
               color="white"
               borderRadius="$3"
