@@ -62,6 +62,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
           carId: selectedCar?.id,
           stationId: selectedStation?.id,
           washingProgramId: program.id,
+          scheduledTime: new Date().toISOString(),
         };
 
         const bookingResponse = await axios.post(

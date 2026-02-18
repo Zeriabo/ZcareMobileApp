@@ -30,7 +30,8 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [saveCard, setSaveCard] = useState(false);
+  const [saveCard, setSaveCard] = useState(true);
+  const [saveCardStatus, setSaveCardStatus] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
@@ -49,11 +50,16 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       const existingCustomerId = await getStripeCustomerId();
       if (existingCustomerId) {
         setCustomerId(existingCustomerId);
-        fetchSavedCards(existingCustomerId);
       }
     };
     load();
   }, []);
+
+  React.useEffect(() => {
+    if (customerId) {
+      fetchSavedCards(customerId);
+    }
+  }, [customerId, user?.token]);
 
   const fetchSavedCards = async (existingCustomerId: string) => {
     if (!existingCustomerId) return;
@@ -61,8 +67,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     try {
       const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/payment/saved-cards`, {
         params: { customerId: existingCustomerId },
+        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
       });
-      setSavedCards(Array.isArray(response.data) ? response.data : []);
+      const cards = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.cards)
+          ? response.data.cards
+          : [];
+      setSavedCards(cards);
     } catch {
       setSavedCards([]);
     } finally {
@@ -80,11 +92,19 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
     const setupIntentResponse = await axios.post(
       `${process.env.EXPO_PUBLIC_SERVER_URL}/payment/create-setup-intent`,
-      payload
+      payload,
+      {
+        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+      }
     );
 
     const setupClientSecret = setupIntentResponse?.data?.clientSecret;
-    const nextCustomerId = setupIntentResponse?.data?.customerId;
+    const nextCustomerId =
+      setupIntentResponse?.data?.customerId ||
+      setupIntentResponse?.data?.customer ||
+      setupIntentResponse?.data?.stripeCustomerId ||
+      setupIntentResponse?.data?.customer_id ||
+      null;
 
     if (!setupClientSecret) {
       throw new Error('Setup intent did not return a client secret');
@@ -106,7 +126,10 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       throw new Error(setupResult.error.message || 'Could not save card');
     }
 
-    await fetchSavedCards(nextCustomerId || customerId || '');
+    const effectiveCustomerId = nextCustomerId || customerId || '';
+    if (effectiveCustomerId) {
+      await fetchSavedCards(effectiveCustomerId);
+    }
   };
 
   // Helper to show the car selection menu
@@ -150,8 +173,15 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
     setLoading(true);
     try {
+      setSaveCardStatus(null);
       if (saveCard) {
-        await setupCardForFuture();
+        try {
+          await setupCardForFuture();
+          setSaveCardStatus('Card saved for next time.');
+        } catch (saveError: any) {
+          setSaveCardStatus('Could not save card.');
+          Alert.alert('Card not saved', saveError?.message || 'Payment will continue, but card was not saved.');
+        }
       }
 
       const result = await (confirmPayment as any)(clientSecret, {
@@ -168,6 +198,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           userId: user.id,
           stationId,
           washingProgramId: route.params?.program?.id,
+          scheduledTime: selectedDate.toISOString(),
           token: user.token,
           executed: false,
         };
@@ -249,7 +280,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                 <View style={styles.savedCardsWrap}>
                   <Text style={styles.savedCardsTitle}>Saved cards</Text>
                   {savedCards.map((card: any) => (
-                    <Text key={card.id} style={styles.savedCardItem}>
+                    <Text key={card.id || card.paymentMethodId || card.last4} style={styles.savedCardItem}>
                       {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
                     </Text>
                   ))}
@@ -257,6 +288,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
               ) : (
                 <Text style={styles.savedCardHint}>No saved cards yet.</Text>
               )}
+              {saveCardStatus ? <Text style={styles.savedCardStatus}>{saveCardStatus}</Text> : null}
             </View>
 
             {showPicker && (
@@ -345,6 +377,7 @@ const styles = StyleSheet.create({
   savedCardsTitle: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
   savedCardItem: { fontSize: 13, color: '#4B5563', marginBottom: 3 },
   savedCardHint: { marginTop: 8, fontSize: 12, color: '#6B7280' },
+  savedCardStatus: { marginTop: 8, fontSize: 12, color: '#4F46E5', fontWeight: '700' },
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 14,
