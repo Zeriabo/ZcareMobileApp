@@ -57,23 +57,24 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   }, []);
 
   React.useEffect(() => {
-    if (customerId) {
-      fetchSavedCards(customerId);
-    }
-  }, [customerId, user?.token]);
+    fetchSavedCards(customerId || '');
+  }, [customerId, user?.token, user?.id, user?.email]);
 
   const cardIdOf = (card: any): string | null => {
     return String(card?.id || card?.paymentMethodId || card?.payment_method || card?.pmId || '') || null;
   };
 
   const fetchSavedCards = async (existingCustomerId: string) => {
-    if (!existingCustomerId) return;
     setLoadingCards(true);
     try {
       const response = await tryRequests(
         getApiBases().map(base => () =>
           axios.get(`${base}/payment/saved-cards`, {
-            params: { customerId: existingCustomerId },
+            params: {
+              customerId: existingCustomerId || undefined,
+              userId: user?.id || undefined,
+              email: user?.email || undefined,
+            },
             headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
           })
         )
@@ -134,6 +135,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const setupCardForFuture = async () => {
     const payload = {
       token: user?.token,
+      userId: user?.id,
       customerId,
       name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Customer',
       email: user?.email || '',
