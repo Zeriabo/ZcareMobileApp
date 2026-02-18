@@ -38,6 +38,7 @@ export const checkout = (program: any) => {
 
 export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' | 'google_pay') => {
   return async (dispatch: Dispatch<any>) => {
+    const paymentMethodType = method === 'card' ? 'credit_card' : method;
 
     const paymentRequest = {
       program: {
@@ -47,7 +48,7 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
         programType: program.programType,
       },
       paymentMethod: {
-        paymentMethodType: method, 
+        paymentMethodType, 
       },
     };
 
@@ -62,10 +63,14 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
       dispatch({ type: 'PAYMENT_INTENT_SUCCESS', payload: response.data });
       return response.data;
     } catch (error: any) {
+      const backendMessage =
+        typeof error?.response?.data === 'string'
+          ? error.response.data
+          : error?.response?.data?.message || JSON.stringify(error?.response?.data);
       dispatch(
         addMessage({
           id: 1,
-          text: error.response?.data || 'Payment failed',
+          text: backendMessage || 'Payment failed',
           status: 500,
         })
       );
