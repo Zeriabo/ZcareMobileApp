@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 import { Dispatch } from 'redux';
-import { displayLocalNotification } from '../../utils/notifications';
+import { displayLocalNotification, scheduleBookingReminder } from '../../utils/notifications';
 import { AppDispatch } from '../store';
 
 // Action Types
@@ -98,6 +98,14 @@ export const createBooking = (bookingInput: any) => {
                 'Booking Successful', 
                 `${(!response.data.executed)?'Valid':'Not Valid'}`
               );
+      const isRepair =
+        response?.data?.bookingType === 'REPAIR' ||
+        !!response?.data?.repairShopId ||
+        !response?.data?.washingProgramId;
+      await scheduleBookingReminder(
+        bookingInput?.scheduledTime || response?.data?.scheduledTime,
+        isRepair ? 'Repair booking' : 'Wash booking'
+      );
       
       // ✅ Return response data so the component can use it
       return response.data;
