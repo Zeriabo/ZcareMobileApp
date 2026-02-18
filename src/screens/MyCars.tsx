@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, Card, Circle, Text, YStack } from 'tamagui';
+import { getInspectionForPlate } from '../data/carInspections';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
 
 function MyCars() {
@@ -44,37 +45,46 @@ console.log(cars)
         <Text color="$gray10">No cars registered yet</Text>
       )}
 
-      {cars.map((car: any) => (
-        <Card
-          key={car.carId}
-          padding="$3"
-          borderRadius="$4"
-          backgroundColor="$background"
-          elevation={3}
-        >
-          <YStack space="$2">
-            <Text fontSize={18} fontWeight="700">
-              {car.manufacture} {car.registerationPlate}
-            </Text>
-            <Text fontSize={14} color="$gray10">
-               Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
-            </Text>
+      {cars.map((car: any) => {
+        const plate = car.registerationPlate || car.registrationPlate;
+        const inspection = getInspectionForPlate(plate);
+        return (
+          <Card
+            key={car.carId}
+            padding="$3"
+            borderRadius="$4"
+            backgroundColor="$background"
+            elevation={3}
+          >
+            <YStack space="$2">
+              <Text fontSize={18} fontWeight="700">
+                {car.manufacture} {car.registerationPlate}
+              </Text>
+              <Text fontSize={14} color="$gray10">
+                 Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
+              </Text>
+              <Text fontSize={14} color="$gray10">
+                Last Inspection: {inspection?.lastInspectionDate || 'Not available yet'}
+              </Text>
+              <Text fontSize={13} color="$gray9">
+                Inspection Result: {inspection?.result || 'Pending'}
+              </Text>
 
-            {/* Remove Car Button */}
-            <Button
-              size="$fit"
-              backgroundColor="$red10"
-              color="white"
-              borderRadius="$3"
-              paddingHorizontal="$4"
-              pressStyle={{ scale: 0.95, backgroundColor: '$red9' }}
-              onPress={() => handleRemoveCar(car)}
-            >
-              Remove Car
-            </Button>
-          </YStack>
-        </Card>
-      ))}
+              <Button
+                size="$4"
+                backgroundColor="$red10"
+                color="white"
+                borderRadius="$3"
+                paddingHorizontal="$4"
+                pressStyle={{ scale: 0.95, backgroundColor: '$red9' }}
+                onPress={() => handleRemoveCar(car)}
+              >
+                Remove Car
+              </Button>
+            </YStack>
+          </Card>
+        );
+      })}
 
       <Circle
         position="absolute"
