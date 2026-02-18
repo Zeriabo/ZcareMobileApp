@@ -5,6 +5,7 @@ import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
 import { Colors, Radius, Spacing } from '../theme/design';
+import { goBackOrHome } from '../utils/navigation';
 
 const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [message, setMessage] = useState('');
@@ -63,14 +64,7 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   };
 
   const goBackSafe = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'MainTabs' }],
-    });
+    goBackOrHome(navigation);
   };
 
   return (

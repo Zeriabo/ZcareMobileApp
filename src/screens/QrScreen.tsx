@@ -2,6 +2,8 @@ import { RootStackParamList } from '../redux/types/stackParams';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import BackButton from '../components/ui/BackButton';
+import { goBackOrHome } from '../utils/navigation';
 import QRCode from 'react-native-qrcode-svg';
 const styles = StyleSheet.create({
   container: {
@@ -45,9 +47,7 @@ const QrScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.container}>
         <Text style={styles.text}>No valid QR code</Text>
 
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>Go back</Text>
-        </Pressable>
+        <BackButton onPress={() => goBackOrHome(navigation)} />
       </View>
     );
   }

@@ -1,11 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft } from '@tamagui/lucide-icons';
 import { MotiView } from 'moti';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Button, Circle, Input, Text, YStack } from 'tamagui';
+import { Button, Input, Text, YStack } from 'tamagui';
+import BackButton from './ui/BackButton';
 import { registerCar } from '../redux/actions/carActions';
+import { goBackOrHome } from '../utils/navigation';
 
 export default function AddCar() {
   const dispatch = useDispatch<any>();
@@ -25,7 +26,7 @@ export default function AddCar() {
         token: user.token,
       })
     );
-    navigation.goBack();
+    goBackOrHome(navigation);
   };
 
   return (
@@ -50,15 +51,7 @@ export default function AddCar() {
           space="$4"
         >
           {/* 🔙 Back Button */}
-          <Circle
-            size={36}
-            backgroundColor="$gray3"
-            alignItems="center"
-            justifyContent="center"
-            onPress={() => navigation.goBack()}
-          >
-            <ArrowLeft size={20} color="black" />
-          </Circle>
+          <BackButton onPress={() => goBackOrHome(navigation)} />
 
           <Text fontSize={24} fontWeight="700" textAlign="center">
             Add a New Car

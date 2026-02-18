@@ -19,7 +19,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { createBooking } from '../redux/actions/BookingActions';
+import BackButton from './ui/BackButton';
 import { getStripeCustomerId, saveStripeCustomerId } from '../utils/storage';
+import { goBackOrHome } from '../utils/navigation';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const { confirmPayment, confirmSetupIntent } = useStripe();
@@ -148,17 +150,30 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     const paymentMethodId =
       paymentIntent?.paymentMethodId ||
       paymentIntent?.paymentMethod ||
+      paymentIntent?.paymentMethod?.id ||
       paymentIntent?.payment_method ||
+      null;
+    const paymentIntentId = paymentIntent?.id || paymentIntent?.paymentIntentId || null;
+    const inferredCustomerId =
+      paymentIntent?.customer ||
+      paymentIntent?.customerId ||
+      paymentIntent?.customer_id ||
       null;
 
     if (!paymentMethodId) return;
 
+    if (inferredCustomerId && inferredCustomerId !== customerId) {
+      setCustomerId(inferredCustomerId);
+      await saveStripeCustomerId(inferredCustomerId);
+    }
+
     const payload = {
-      customerId: customerId || undefined,
-      stripeCustomerId: customerId || undefined,
+      customerId: inferredCustomerId || customerId || undefined,
+      stripeCustomerId: inferredCustomerId || customerId || undefined,
       userId: user?.id || undefined,
       email: user?.email || undefined,
       paymentMethodId,
+      paymentIntentId: paymentIntentId || undefined,
       setDefault: true,
       makeDefault: true,
       token: user?.token,
@@ -169,6 +184,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         () => axios.post(`${base}/payment/saved-cards/attach`, payload, { headers: withAuthHeaders() }),
         () => axios.post(`${base}/payment/saved-cards`, payload, { headers: withAuthHeaders() }),
         () => axios.post(`${base}/payment/save-card`, payload, { headers: withAuthHeaders() }),
+        () => axios.post(`${base}/payment/attach-payment-method`, payload, { headers: withAuthHeaders() }),
       ])
     );
 
@@ -179,7 +195,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       response?.data?.customer_id ||
       null;
 
-    const effectiveCustomerId = nextCustomerId || customerId || '';
+    const effectiveCustomerId = nextCustomerId || inferredCustomerId || customerId || '';
     if (nextCustomerId && nextCustomerId !== customerId) {
       setCustomerId(nextCustomerId);
       await saveStripeCustomerId(nextCustomerId);
@@ -318,10 +334,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           try {
             await persistSavedCardAfterPayment(result.paymentIntent);
             setSaveCardStatus('Card saved for next time.');
-          } catch {
-            if (!saveCardStatus) {
-              setSaveCardStatus('Could not save card.');
-            }
+          } catch (saveError: any) {
+            const msg =
+              saveError?.response?.data?.message ||
+              (typeof saveError?.response?.data === 'string' ? saveError.response.data : null) ||
+              saveError?.message ||
+              'Could not save card.';
+            setSaveCardStatus(`Could not save card: ${msg}`);
+            Alert.alert('Card save failed', msg);
           }
         }
 
@@ -383,9 +403,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <Text style={styles.backIcon}>←</Text>
-              </TouchableOpacity>
+              <BackButton onPress={() => goBackOrHome(navigation)} />
               <Text style={styles.headerTitle}>Checkout</Text>
               <View style={{ width: 36 }} />
             </View>
@@ -522,15 +540,6 @@ const styles = StyleSheet.create({
   safeContainer: { flex: 1, backgroundColor: '#EEF2FF' },
   scrollContainer: { paddingHorizontal: 16, paddingBottom: 34 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 16 },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { fontSize: 18, color: '#111827', fontWeight: '700' },
   headerSubtitle: { color: '#6B7280', fontSize: 12, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
   programCard: {

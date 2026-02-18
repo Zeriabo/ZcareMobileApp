@@ -12,6 +12,7 @@ import { create_paymentIntent } from '../redux/actions/BuyActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { RootState } from '../redux/store';
 import { Colors, Radius, Spacing } from '../theme/design';
+import { goBackOrHome } from '../utils/navigation';
 
 type RepairRoute = RouteProp<RootStackParamList, 'RepairShop'>;
 type RepairNavigation = NativeStackNavigationProp<RootStackParamList, 'RepairShop'>;
@@ -102,14 +103,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [shop.servicesOffered]);
 
   const goBackSafe = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'MainTabs' }],
-    });
+    goBackOrHome(navigation);
   };
 
   const handleBookRepair = async () => {

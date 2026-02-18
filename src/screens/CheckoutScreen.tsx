@@ -2,9 +2,11 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BackButton from '../components/ui/BackButton';
 import { useDispatch, useSelector } from 'react-redux';
 import { confirm_payment } from '../redux/actions/BuyActions';
 import { RootStackParamList } from '../redux/types/stackParams';
+import { goBackOrHome } from '../utils/navigation';
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -39,12 +41,9 @@ const CheckoutScreen = () => {
   return (
     <ScrollView style={styles.scrollContainer} contentContainerStyle={{ flexGrow: 1 }}>
       {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+      <View style={styles.backWrap}>
+        <BackButton onPress={() => goBackOrHome(navigation)} />
+      </View>
 
       {/* Checkout Card */}
       <View style={styles.card}>
@@ -74,14 +73,9 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingHorizontal: 20,
   },
-  backButton: {
+  backWrap: {
     alignSelf: 'flex-start',
     marginBottom: 20,
-  },
-  backButtonText: {
-    fontSize: 18,
-    color: '#007AFF',
-    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',

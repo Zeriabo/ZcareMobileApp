@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { StyleSheet, Text, View } from 'react-native';
+import BackButton from './BackButton';
 import { Colors, Radius, Spacing } from '../../theme/design';
 
 type Props = {
@@ -15,9 +15,7 @@ const AppHeader: React.FC<Props> = ({ title, subtitle, onBack, right }) => {
     <View style={styles.wrap}>
       <View style={styles.topRow}>
         {onBack ? (
-          <Pressable onPress={onBack} hitSlop={12} style={styles.iconButton}>
-            <Icon name="chevron-back" size={22} color={Colors.text} />
-          </Pressable>
+          <BackButton onPress={onBack} color={Colors.text} />
         ) : (
           <View style={styles.iconButtonPlaceholder} />
         )}
