@@ -116,15 +116,15 @@ export const updateBooking = (bookingId: any, booking: any) => {
         booking,
       );
       dispatch(updateBookingSuccess(response.data));
+      dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
             await displayLocalNotification(
                 'Booking updated Successfully!', 
                 `${response.data}!`
               );
-      
-      // Handle navigation or other actions here
+      return response.data;
     } catch (error) {
       console.log(error);
-      // Handle error messages
+      throw error;
     }
   };
 };
@@ -136,10 +136,11 @@ export const deleteBooking = (bookingId: any) => {
         process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
       );
       dispatch(deleteBookingSuccess(bookingId));
-      // Handle navigation or other actions here
+      dispatch({ type: 'DELETE_BOOKING', payload: bookingId });
+      return true;
     } catch (error) {
       console.log(error);
-      // Handle error messages
+      throw error;
     }
   };
 };

@@ -1,13 +1,13 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import { useDispatch, useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
-import { fetchUserBookings } from '../redux/actions/BookingActions';
+import { deleteBooking, fetchUserBookings, updateBooking } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
 import { Colors, Spacing } from '../theme/design';
 
@@ -21,6 +21,7 @@ const MyBookingsScreen: React.FC = () => {
   );
 
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
   // Fetch bookings every time the screen comes into focus
   useFocusEffect(
@@ -38,6 +39,55 @@ const MyBookingsScreen: React.FC = () => {
       !!item.repairShopId ||
       !!item.repairItemName ||
       !item.washingProgramId;
+
+    const scheduledLabel = item.scheduledTime
+      ? new Date(item.scheduledTime).toLocaleString()
+      : 'Not scheduled';
+
+    const handleCancel = () => {
+      Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingId(item.id);
+              await dispatch(deleteBooking(item.id));
+              if (userState?.token) {
+                await dispatch(fetchUserBookings(userState.token));
+              }
+            } catch (error: any) {
+              Alert.alert('Cancel failed', error?.response?.data?.message || error?.message || 'Try again later');
+            } finally {
+              setProcessingId(null);
+            }
+          },
+        },
+      ]);
+    };
+
+    const handleReschedule = async () => {
+      try {
+        setProcessingId(item.id);
+        const base = item.scheduledTime ? new Date(item.scheduledTime) : new Date();
+        base.setDate(base.getDate() + 1);
+        const payload = {
+          ...item,
+          scheduledTime: base.toISOString(),
+          token: userState?.token || item.token,
+        };
+        await dispatch(updateBooking(item.id, payload));
+        if (userState?.token) {
+          await dispatch(fetchUserBookings(userState.token));
+        }
+        Alert.alert('Rescheduled', 'Booking moved +1 day.');
+      } catch (error: any) {
+        Alert.alert('Reschedule failed', error?.response?.data?.message || error?.message || 'Try again later');
+      } finally {
+        setProcessingId(null);
+      }
+    };
 
     return (
     <AppCard style={styles.bookingCard}>
@@ -62,15 +112,41 @@ const MyBookingsScreen: React.FC = () => {
           <Text style={styles.label}>Vehicle registration</Text>
           <Text style={styles.value}>{item.carRegistrationPlate || '-'}</Text>
         </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Scheduled</Text>
+          <Text style={styles.value}>{scheduledLabel}</Text>
+        </View>
         {isRepairTicket && (
           <View style={styles.detailRow}>
             <Text style={styles.label}>Repair</Text>
             <Text style={styles.value}>{item.repairItemName || '-'}</Text>
           </View>
         )}
+        {!isRepairTicket && (
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Program</Text>
+            <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
+          </View>
+        )}
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
           <Text style={[styles.value, { color: '#34C759' }]}>Active</Text>
+        </View>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={handleCancel} disabled={processingId === item.id}>
+            {processingId === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.actionText}>Cancel</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleReschedule} disabled={processingId === item.id}>
+            {processingId === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.actionText}>Reschedule +1d</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     </AppCard>
@@ -138,6 +214,17 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   label: { fontSize: 14, color: Colors.textMuted },
   value: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  actionRow: { flexDirection: 'row', marginTop: 8, justifyContent: 'space-between' },
+  actionBtn: {
+    width: '48.5%',
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionDanger: { backgroundColor: Colors.danger },
+  actionText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
   message: { fontSize: 18, color: Colors.textMuted },
 });
