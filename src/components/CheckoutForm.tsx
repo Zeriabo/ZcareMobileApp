@@ -35,6 +35,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
 
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
@@ -61,6 +62,10 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     }
   }, [customerId, user?.token]);
 
+  const cardIdOf = (card: any): string | null => {
+    return String(card?.id || card?.paymentMethodId || card?.payment_method || card?.pmId || '') || null;
+  };
+
   const fetchSavedCards = async (existingCustomerId: string) => {
     if (!existingCustomerId) return;
     setLoadingCards(true);
@@ -75,11 +80,57 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           ? response.data.cards
           : [];
       setSavedCards(cards);
+      const defaultCard = cards.find((card: any) => card?.isDefault);
+      setSelectedSavedCardId(cardIdOf(defaultCard) || cardIdOf(cards[0]) || null);
     } catch {
       setSavedCards([]);
+      setSelectedSavedCardId(null);
     } finally {
       setLoadingCards(false);
     }
+  };
+
+  const withAuthHeaders = () => (user?.token ? { Authorization: `Bearer ${user.token}` } : undefined);
+
+  const setDefaultSavedCard = async (paymentMethodId: string) => {
+    const base = process.env.EXPO_PUBLIC_SERVER_URL;
+    const candidates = [
+      () => axios.post(`${base}/payment/saved-cards/default`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+      () => axios.post(`${base}/payment/default-card`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+      () => axios.put(`${base}/payment/saved-cards/${paymentMethodId}/default`, { customerId }, { headers: withAuthHeaders() }),
+    ];
+
+    let done = false;
+    for (const call of candidates) {
+      try {
+        await call();
+        done = true;
+        break;
+      } catch (e: any) {
+        if (![404, 405].includes(e?.response?.status)) throw e;
+      }
+    }
+    if (!done) throw new Error('Default-card endpoint not available.');
+  };
+
+  const deleteSavedCard = async (paymentMethodId: string) => {
+    const base = process.env.EXPO_PUBLIC_SERVER_URL;
+    const candidates = [
+      () => axios.delete(`${base}/payment/saved-cards/${paymentMethodId}`, { params: { customerId }, headers: withAuthHeaders() }),
+      () => axios.post(`${base}/payment/saved-cards/delete`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+    ];
+
+    let done = false;
+    for (const call of candidates) {
+      try {
+        await call();
+        done = true;
+        break;
+      } catch (e: any) {
+        if (![404, 405].includes(e?.response?.status)) throw e;
+      }
+    }
+    if (!done) throw new Error('Delete-card endpoint not available.');
   };
 
   const setupCardForFuture = async () => {
@@ -158,7 +209,9 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
   const handlePayment = async () => {
     if (!selectedCar) return Alert.alert('Error', 'Please select a car');
-    if (!cardDetails?.complete) return Alert.alert('Error', 'Please enter valid card details');
+    if (!selectedSavedCardId && !cardDetails?.complete) {
+      return Alert.alert('Error', 'Please enter valid card details or choose a saved card');
+    }
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -184,13 +237,21 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         }
       }
 
-      const result = await (confirmPayment as any)(clientSecret, {
-        paymentMethodType: 'Card',
-        paymentMethodData: {
-          card: cardDetails,
-          billingDetails: { name: user?.name ?? 'Customer' },
-        },
-      });
+      const result = selectedSavedCardId
+        ? await (confirmPayment as any)(clientSecret, {
+            paymentMethodType: 'Card',
+            paymentMethodData: {
+              paymentMethodId: selectedSavedCardId,
+              billingDetails: { name: user?.name ?? 'Customer' },
+            },
+          })
+        : await (confirmPayment as any)(clientSecret, {
+            paymentMethodType: 'Card',
+            paymentMethodData: {
+              card: cardDetails,
+              billingDetails: { name: user?.name ?? 'Customer' },
+            },
+          });
 
       if (result?.paymentIntent?.status?.toLowerCase() === 'succeeded') {
         const bookingPayload = {
@@ -279,11 +340,52 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
               ) : savedCards.length > 0 ? (
                 <View style={styles.savedCardsWrap}>
                   <Text style={styles.savedCardsTitle}>Saved cards</Text>
-                  {savedCards.map((card: any) => (
-                    <Text key={card.id || card.paymentMethodId || card.last4} style={styles.savedCardItem}>
-                      {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
-                    </Text>
-                  ))}
+                  {savedCards.map((card: any) => {
+                    const cardId = cardIdOf(card) || `${card.last4}`;
+                    const selected = cardId === selectedSavedCardId;
+                    return (
+                      <View key={cardId} style={[styles.savedCardRow, selected && styles.savedCardRowSelected]}>
+                        <TouchableOpacity
+                          onPress={() => setSelectedSavedCardId(cardId)}
+                          activeOpacity={0.8}
+                          style={{ flex: 1 }}
+                        >
+                          <Text style={styles.savedCardItem}>
+                            {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            try {
+                              await setDefaultSavedCard(cardId);
+                              await fetchSavedCards(customerId || '');
+                              setSaveCardStatus('Default card updated.');
+                            } catch (e: any) {
+                              Alert.alert('Could not set default', e?.response?.data?.message || e?.message || 'Try again later.');
+                            }
+                          }}
+                          style={styles.savedCardAction}
+                        >
+                          <Text style={styles.savedCardActionText}>Default</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            try {
+                              await deleteSavedCard(cardId);
+                              if (selectedSavedCardId === cardId) setSelectedSavedCardId(null);
+                              await fetchSavedCards(customerId || '');
+                              setSaveCardStatus('Card removed.');
+                            } catch (e: any) {
+                              Alert.alert('Could not delete card', e?.response?.data?.message || e?.message || 'Try again later.');
+                            }
+                          }}
+                          style={[styles.savedCardAction, styles.savedCardDanger]}
+                        >
+                          <Text style={[styles.savedCardActionText, styles.savedCardDangerText]}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
                 </View>
               ) : (
                 <Text style={styles.savedCardHint}>No saved cards yet.</Text>
@@ -375,7 +477,34 @@ const styles = StyleSheet.create({
   stripeCard: { width: '100%', height: 220, marginTop: 8 },
   savedCardsWrap: { marginTop: 10 },
   savedCardsTitle: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  savedCardItem: { fontSize: 13, color: '#4B5563', marginBottom: 3 },
+  savedCardRow: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  savedCardRowSelected: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#EEF2FF',
+  },
+  savedCardItem: { fontSize: 13, color: '#4B5563' },
+  savedCardAction: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  savedCardDanger: {
+    borderColor: '#DC2626',
+  },
+  savedCardActionText: { fontSize: 11, color: '#4F46E5', fontWeight: '700' },
+  savedCardDangerText: { color: '#DC2626' },
   savedCardHint: { marginTop: 8, fontSize: 12, color: '#6B7280' },
   savedCardStatus: { marginTop: 8, fontSize: 12, color: '#4F46E5', fontWeight: '700' },
   footer: {
