@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { createBooking } from '../redux/actions/BookingActions';
 import BackButton from './ui/BackButton';
+import { getPaymentApiBases, getSaveCardPaths } from '../utils/paymentApi';
 import { getStripeCustomerId, saveStripeCustomerId } from '../utils/storage';
 import { goBackOrHome } from '../utils/navigation';
 
@@ -112,8 +113,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const withAuthHeaders = () => (user?.token ? { Authorization: `Bearer ${user.token}` } : undefined);
   const getApiBases = () => {
     const rawBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
-    const noV1 = rawBase.endsWith('/v1') ? rawBase.slice(0, -3) : rawBase;
-    return Array.from(new Set([rawBase, `${noV1}/v1`]));
+    return getPaymentApiBases(rawBase);
   };
 
   const tryRequests = async (requests: Array<() => Promise<any>>) => {
@@ -180,12 +180,9 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     };
 
     const response = await tryRequests(
-      getApiBases().flatMap(base => [
-        () => axios.post(`${base}/payment/saved-cards/attach`, payload, { headers: withAuthHeaders() }),
-        () => axios.post(`${base}/payment/saved-cards`, payload, { headers: withAuthHeaders() }),
-        () => axios.post(`${base}/payment/save-card`, payload, { headers: withAuthHeaders() }),
-        () => axios.post(`${base}/payment/attach-payment-method`, payload, { headers: withAuthHeaders() }),
-      ])
+      getApiBases().flatMap(base =>
+        getSaveCardPaths().map(path => () => axios.post(`${base}${path}`, payload, { headers: withAuthHeaders() }))
+      )
     );
 
     const nextCustomerId =
