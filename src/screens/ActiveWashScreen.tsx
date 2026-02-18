@@ -13,6 +13,46 @@ const normalizeStatus = (raw: any) => {
   return s;
 };
 
+const getStatusCopy = (status: string) => {
+  switch (status) {
+    case 'PURCHASED':
+      return {
+        title: 'Your car wash is purchased',
+        helper: 'Waiting for queue/wash start update from station.',
+      };
+    case 'QUEUING':
+      return {
+        title: 'Your car wash is in queue',
+        helper: 'Your wash will start soon.',
+      };
+    case 'WASHING':
+      return {
+        title: 'Your car is being washed',
+        helper: 'Live wash status from backend',
+      };
+    case 'FINISHED':
+      return {
+        title: 'Your car wash is finished',
+        helper: 'Finalizing...',
+      };
+    case 'CANCELED':
+      return {
+        title: 'Your car wash is canceled',
+        helper: 'This wash was canceled by provider or user.',
+      };
+    case 'NOT_PURCHASED':
+      return {
+        title: 'Your car wash is not purchased',
+        helper: 'Please complete payment to continue.',
+      };
+    default:
+      return {
+        title: `Wash status: ${status.replaceAll('_', ' ')}`,
+        helper: 'Live wash status from backend',
+      };
+  }
+};
+
 const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
   const { bookingId } = route.params;
   const dispatch = useDispatch<any>();
@@ -80,18 +120,19 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const isDone = status.includes('FINISHED');
   const isFailed = status.includes('CANCELED') || status.includes('NOT_PURCHASED');
+  const statusCopy = getStatusCopy(status);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {isDone ? 'Wash completed' : isFailed ? 'Wash interrupted' : 'Your car is being washed'}
+        {statusCopy.title}
       </Text>
       <Text style={styles.subTitle}>Booking #{bookingId}</Text>
 
       <View style={styles.animationFallback}>
         <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.animationText}>
-          {loading ? 'Loading status from backend...' : isDone ? 'Finalizing...' : 'Live wash status from backend'}
+          {loading ? 'Loading status from backend...' : statusCopy.helper}
         </Text>
       </View>
 

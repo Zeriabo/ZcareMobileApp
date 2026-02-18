@@ -25,8 +25,17 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const { confirmPayment, confirmSetupIntent } = useStripe();
   const dispatch = useDispatch<any>();
 
+  const isRepairCheckout = route?.params?.mode === 'repair' || !!route?.params?.repairBooking;
+  const repairBookingDraft = route?.params?.repairBooking;
+
   const [selectedCar, setSelectedCar] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (repairBookingDraft?.scheduledTime) {
+      const parsed = new Date(repairBookingDraft.scheduledTime);
+      if (Number.isFinite(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
   const [showPicker, setShowPicker] = useState(false);
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +56,9 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   }, [navigation]);
 
   React.useEffect(() => {
+    if (isRepairCheckout && repairBookingDraft?.carId) {
+      setSelectedCar(repairBookingDraft.carId);
+    }
     const load = async () => {
       const existingCustomerId = await getStripeCustomerId();
       if (existingCustomerId) {
@@ -54,7 +66,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       }
     };
     load();
-  }, []);
+  }, [isRepairCheckout, repairBookingDraft?.carId]);
 
   React.useEffect(() => {
     fetchSavedCards(customerId || '');
@@ -259,17 +271,42 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           });
 
       if (result?.paymentIntent?.status?.toLowerCase() === 'succeeded') {
-        const bookingPayload = {
-          carId: selectedCar,
-          userId: user.id,
-          stationId,
-          washingProgramId: route.params?.program?.id,
-          scheduledTime: selectedDate.toISOString(),
-          token: user.token,
-          executed: false,
-        };
+        let bookingResponse: any;
+        if (isRepairCheckout) {
+          const dt = selectedDate;
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const ms = String(dt.getMilliseconds()).padStart(3, '0');
+          const localDateTime = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}.${ms}`;
+          const repairPayload = {
+            ...repairBookingDraft,
+            carId: selectedCar,
+            userId: user?.id,
+            token: user?.token,
+            scheduledTime: localDateTime,
+          };
+          const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
+          try {
+            bookingResponse = (await axios.post(`${base}/booking/repair`, repairPayload)).data;
+          } catch (error: any) {
+            if (error?.response?.status === 404) {
+              bookingResponse = (await axios.post(`${base}/v1/bookings/repair`, repairPayload)).data;
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          const bookingPayload = {
+            carId: selectedCar,
+            userId: user.id,
+            stationId,
+            washingProgramId: route.params?.program?.id,
+            scheduledTime: selectedDate.toISOString(),
+            token: user.token,
+            executed: false,
+          };
+          bookingResponse = await dispatch(createBooking(bookingPayload));
+        }
 
-        const bookingResponse: any = await dispatch(createBooking(bookingPayload));
         const qrCode = bookingResponse?.qrCode || bookingResponse?.qr_code;
         if (qrCode) {
           navigation.replace('QrScreen', { qrCode });
@@ -300,8 +337,8 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             </View>
 
             <View style={styles.programCard}>
-              <Text style={styles.headerSubtitle}>Selected Program</Text>
-              <Text style={styles.programName}>{route.params?.program?.name || 'Wash Program'}</Text>
+              <Text style={styles.headerSubtitle}>{isRepairCheckout ? 'Selected Service' : 'Selected Program'}</Text>
+              <Text style={styles.programName}>{route.params?.program?.name || (isRepairCheckout ? 'Repair Service' : 'Wash Program')}</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.currency}>€</Text>
                 <Text style={styles.priceText}>{Number(route.params?.program?.price || 0).toFixed(2)}</Text>

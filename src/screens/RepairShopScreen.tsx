@@ -3,11 +3,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Picker } from '@react-native-picker/picker';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import { create_paymentIntent } from '../redux/actions/BuyActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { RootState } from '../redux/store';
 import { Colors, Radius, Spacing } from '../theme/design';
@@ -31,6 +32,7 @@ type CatalogSku = {
 };
 
 const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
+  const dispatch = useDispatch<any>();
   const { shop } = route.params;
   const user = useSelector((state: RootState) => state.user.user as any);
   const cars = useSelector((state: RootState) => state.cars.cars as any[]);
@@ -149,31 +151,21 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         token: user.token,
       };
 
-      const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || '';
-      let response;
-      try {
-        response = await axios.post(`${baseUrl}/booking/repair`, payload);
-      } catch (error: any) {
-        if (error?.response?.status === 404) {
-          response = await axios.post(`${baseUrl}/v1/bookings/repair`, payload);
-        } else {
-          throw error;
-        }
-      }
-      const data = response.data || {};
+      const checkoutProgram = {
+        id: selectedRepairId,
+        name: selectedRepair?.name || 'Repair service',
+        price: selectedRepair?.priceAmount ?? 0,
+        programType: 'repair',
+      };
 
-      Alert.alert(
-        'Repair booked',
-        `Your repair booking has been created successfully for ${selectedRepair?.name || 'selected service'}.`
-      );
-
-      if (data.qrCode) {
-        navigation.navigate('QrScreen', { qrCode: data.qrCode, executed: false });
-      } else {
-        navigation.goBack();
-      }
+      await dispatch(create_paymentIntent(checkoutProgram, 'card'));
+      navigation.navigate('CheckoutForm', {
+        program: checkoutProgram,
+        mode: 'repair',
+        repairBooking: payload,
+      });
     } catch (error: any) {
-      Alert.alert('Booking failed', error?.response?.data?.message || error?.message || 'Failed to create repair booking');
+      Alert.alert('Checkout unavailable', error?.response?.data?.message || error?.message || 'Failed to initialize repair payment');
     } finally {
       setLoading(false);
     }
