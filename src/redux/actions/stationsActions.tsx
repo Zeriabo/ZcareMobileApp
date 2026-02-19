@@ -9,6 +9,24 @@ import {
   StationsAction,
 } from '../types/stationsActionTypes';
 
+const getStationEndpoints = (baseUrlRaw: string): string[] => {
+  const baseUrl = (baseUrlRaw || '').trim().replace(/\/+$/, '');
+  if (!baseUrl) return [];
+
+  const endpoints = [`${baseUrl}/stations/`];
+
+  // Gateway on :8080 can be down while station service on :8090 is healthy.
+  if (baseUrl.includes(':8080')) {
+    endpoints.push(`${baseUrl.replace(':8080', ':8090')}/v1/stations/`);
+  }
+
+  if (!baseUrl.includes(':8090')) {
+    endpoints.push(`${baseUrl}/v1/stations/`);
+  }
+
+  return Array.from(new Set(endpoints));
+};
+
 
 // Fetch stations action using REST API
 export const fetchStations = (): ThunkAction<
@@ -21,20 +39,29 @@ export const fetchStations = (): ThunkAction<
     dispatch({ type: FETCH_STATIONS_REQUEST });
 
     try {
-      console.log("SERVER URL:", process.env.EXPO_PUBLIC_SERVER_URL);
+      const serverBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
+      console.log('SERVER URL:', serverBase);
 
-      const response = await axios.get(
-        process.env.EXPO_PUBLIC_SERVER_URL + '/stations/'
-      );
-console.log(response)
-      const stations = response.data;
+      const stationEndpoints = getStationEndpoints(serverBase);
+      let lastError: any = null;
 
-      dispatch({
-        type: FETCH_STATIONS_SUCCESS,
-        payload: stations,
-      });
+      for (const endpoint of stationEndpoints) {
+        try {
+          const response = await axios.get(endpoint, { timeout: 10000 });
+          dispatch({
+            type: FETCH_STATIONS_SUCCESS,
+            payload: response.data,
+          });
+          return;
+        } catch (error: any) {
+          lastError = error;
+          console.log('Station endpoint failed:', endpoint, error?.message || error);
+        }
+      }
+
+      throw lastError || new Error('Failed to fetch stations');
     } catch (error: any) {
-      console.log(error)
+      console.log(error);
       dispatch({
         type: FETCH_STATIONS_FAILURE,
         error:

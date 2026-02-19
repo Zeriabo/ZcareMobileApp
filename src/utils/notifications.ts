@@ -1,6 +1,8 @@
-import notifee, { AndroidImportance, TimestampTrigger, TriggerType } from '@notifee/react-native';
+import notifee, { AndroidImportance, TimestampTrigger, TriggerType } from './notifeeCompat';
 
 export const displayLocalNotification = async (title: string, body: string) => {
+  if (!notifee) return;
+
   // Request permissions (required for iOS)
   await notifee.requestPermission();
 
@@ -37,6 +39,7 @@ export const scheduleBookingReminder = async (
   scheduledTimeIso: string | null | undefined,
   label: string
 ) => {
+  if (!notifee) return;
   if (!scheduledTimeIso) return;
   const scheduledAt = new Date(scheduledTimeIso).getTime();
   if (!Number.isFinite(scheduledAt)) return;

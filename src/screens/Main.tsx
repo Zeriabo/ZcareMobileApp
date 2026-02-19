@@ -24,6 +24,9 @@ const Main: React.FC<any> = ({ navigation }) => {
 
   const [initialRegion, setInitialRegion] = useState<Region | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasMapsKey =
+    !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY &&
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.trim().length > 0;
 
   const getCurrentLocation = async () => {
     try {
@@ -71,6 +74,17 @@ const Main: React.FC<any> = ({ navigation }) => {
     );
   }
 
+  if (!hasMapsKey) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.missingKeyTitle}>Google Maps key missing</Text>
+        <Text style={styles.missingKeyText}>
+          Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in .env and rebuild Android.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Zwash</Text>
@@ -99,6 +113,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold', margin: 10, textAlign: 'center' },
   map: { width: '100%', height: '100%' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  missingKeyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  missingKeyText: { fontSize: 14, color: '#4b5563', textAlign: 'center', paddingHorizontal: 20 },
 });
 
 export default Main;

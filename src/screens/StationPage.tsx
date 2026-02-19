@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from '@react-native-vector-icons/ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from '../components/ui/BackButton';
 import { fetchPrograms } from '../redux/actions/programsActions';

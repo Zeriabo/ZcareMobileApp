@@ -1,7 +1,7 @@
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchWashesBooked } from '../redux/actions/WashesActions';
 import { RootState } from '../redux/store';

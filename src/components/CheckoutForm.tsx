@@ -135,7 +135,12 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         return await request();
       } catch (e: any) {
         lastError = e;
-        if (![404, 405].includes(e?.response?.status)) throw e;
+        const status = e?.response?.status;
+        const noResponse = !e?.response;
+        if (noResponse || [404, 405, 500, 502, 503].includes(status)) {
+          continue;
+        }
+        throw e;
       }
     }
     throw lastError || new Error('No compatible endpoint found');
@@ -234,7 +239,13 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       ])
     );
 
-    const setupClientSecret = setupIntentResponse?.data?.clientSecret;
+    const setupClientSecret =
+      (typeof setupIntentResponse?.data === 'string' ? setupIntentResponse.data : null) ||
+      setupIntentResponse?.data?.clientSecret ||
+      setupIntentResponse?.data?.client_secret ||
+      setupIntentResponse?.data?.setupIntentClientSecret ||
+      setupIntentResponse?.data?.setup_intent_client_secret ||
+      null;
     const nextCustomerId =
       setupIntentResponse?.data?.customerId ||
       setupIntentResponse?.data?.customer ||
@@ -271,18 +282,34 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   // Helper to show the car selection menu
   const showVehiclePicker = () => {
     const carOptions = cars.map((car: any) => `${car.manufacture} (${car.registerationPlate || 'No Plate'})`);
-    
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: ['Cancel', ...carOptions],
-        cancelButtonIndex: 0,
-        title: 'Select Vehicle',
-      },
-      (buttonIndex) => {
-        if (buttonIndex > 0) {
-          setSelectedCar(cars[buttonIndex - 1].carId);
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', ...carOptions],
+          cancelButtonIndex: 0,
+          title: 'Select Vehicle',
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setSelectedCar(cars[buttonIndex - 1].carId);
+          }
         }
-      }
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Select Vehicle',
+      undefined,
+      [
+        ...cars.map((car: any) => ({
+          text: `${car.manufacture} (${car.registerationPlate || 'No Plate'})`,
+          onPress: () => setSelectedCar(car.carId),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -317,9 +344,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     setLoading(true);
     try {
       setSaveCardStatus(null);
+      let cardSavedDuringSetup = false;
       if (saveCard) {
         try {
           await setupCardForFuture();
+          cardSavedDuringSetup = true;
           setSaveCardStatus('Card saved for next time.');
         } catch (saveError: any) {
           const msg = saveError?.response?.data?.message || saveError?.message || 'Could not save card.';
@@ -345,8 +374,18 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             },
           });
 
+      if (result?.error) {
+        const stripeMessage =
+          result.error.localizedMessage ||
+          result.error.message ||
+          'Payment confirmation failed.';
+        console.log('[payment] Stripe confirm error:', result.error);
+        Alert.alert('Payment Failed', stripeMessage);
+        return;
+      }
+
       if (result?.paymentIntent?.status?.toLowerCase() === 'succeeded') {
-        if (saveCard) {
+        if (saveCard && !cardSavedDuringSetup) {
           try {
             await persistSavedCardAfterPayment(result.paymentIntent);
             setSaveCardStatus('Card saved for next time.');
@@ -404,10 +443,22 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           Alert.alert('Booking Error', 'Payment succeeded but booking failed.');
         }
       } else {
-        Alert.alert('Payment Failed', 'Transaction declined.');
+        const status = result?.paymentIntent?.status || 'unknown';
+        console.log('[payment] Unexpected payment intent status:', status, result?.paymentIntent);
+        Alert.alert('Payment Failed', `Transaction not completed (${status}).`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Payment error occurred.');
+      const backendMessage =
+        error?.response?.data?.message ||
+        (typeof error?.response?.data === 'string' ? error.response.data : null) ||
+        error?.message ||
+        'Payment error occurred.';
+      console.log('[payment] handlePayment catch:', {
+        message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data,
+      });
+      Alert.alert('Error', backendMessage);
     } finally {
       setLoading(false);
     }

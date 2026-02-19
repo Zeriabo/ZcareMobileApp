@@ -1,10 +1,10 @@
 // SocketProvider.tsx
-import notifee, { AndroidImportance } from '@notifee/react-native';
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
 import { fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
+import notifee, { AndroidImportance } from '../utils/notifeeCompat';
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -82,16 +82,18 @@ export const SocketProvider = ({ children }: any) => {
       payload?.message ||
       (bookingId ? `Booking #${bookingId}: ${status.replaceAll('_', ' ')}` : status.replaceAll('_', ' '));
 
-    await notifee.createChannel({
-      id: 'zcare_updates',
-      name: 'ZCare updates',
-      importance: AndroidImportance.HIGH,
-    });
-    await notifee.displayNotification({
-      title,
-      body,
-      android: { channelId: 'zcare_updates' },
-    });
+    if (notifee) {
+      await notifee.createChannel({
+        id: 'zcare_updates',
+        name: 'ZCare updates',
+        importance: AndroidImportance.HIGH,
+      });
+      await notifee.displayNotification({
+        title,
+        body,
+        android: { channelId: 'zcare_updates' },
+      });
+    }
 
     if (Number.isFinite(currentUserId) && Number.isFinite(eventUserId) && eventUserId !== currentUserId) {
       return;
