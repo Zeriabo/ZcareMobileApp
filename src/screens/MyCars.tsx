@@ -2,7 +2,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Button, Card, Circle, Text, YStack } from 'tamagui';
+import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui';
 import { getInspectionForPlate } from '../data/carInspections';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
 
@@ -12,7 +12,22 @@ function MyCars() {
   const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
-console.log(cars)
+  const getInspectionBadge = (result?: string) => {
+    const normalized = String(result || '').toLowerCase();
+    if (normalized.includes('fail') || normalized.includes('reject')) return { label: 'Attention needed', color: '$red10' };
+    if (normalized.includes('pending')) return { label: 'Pending', color: '$yellow10' };
+    if (!normalized) return { label: 'Unknown', color: '$gray10' };
+    return { label: 'Healthy', color: '$green10' };
+  };
+
+  const getNextInspectionDate = (lastInspectionDate?: string) => {
+    if (!lastInspectionDate) return null;
+    const parsed = new Date(lastInspectionDate);
+    if (!Number.isFinite(parsed.getTime())) return null;
+    parsed.setFullYear(parsed.getFullYear() + 1);
+    return parsed.toDateString();
+  };
+
   useEffect(() => {
     if (user?.token && isFocused) {
       dispatch(getUserCars(user.token));
@@ -48,6 +63,8 @@ console.log(cars)
       {cars.map((car: any) => {
         const plate = car.registerationPlate || car.registrationPlate;
         const inspection = getInspectionForPlate(plate);
+        const badge = getInspectionBadge(inspection?.result);
+        const nextInspection = getNextInspectionDate(inspection?.lastInspectionDate);
         return (
           <Card
             key={car.carId}
@@ -57,14 +74,30 @@ console.log(cars)
             elevation={3}
           >
             <YStack space="$2">
-              <Text fontSize={18} fontWeight="700">
-                {car.manufacture} {car.registerationPlate}
-              </Text>
+              <XStack justifyContent="space-between" alignItems="center">
+                <Text fontSize={18} fontWeight="700">
+                  {car.manufacture} {car.registerationPlate}
+                </Text>
+                <Text
+                  fontSize={11}
+                  fontWeight="700"
+                  backgroundColor={badge.color}
+                  color="white"
+                  paddingHorizontal="$2"
+                  paddingVertical="$1"
+                  borderRadius="$3"
+                >
+                  {badge.label}
+                </Text>
+              </XStack>
               <Text fontSize={14} color="$gray10">
                  Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
               </Text>
               <Text fontSize={14} color="$gray10">
                 Last Inspection: {inspection?.lastInspectionDate || 'Not available yet'}
+              </Text>
+              <Text fontSize={14} color="$gray10">
+                Next Inspection Due: {nextInspection || 'Not available yet'}
               </Text>
               <Text fontSize={13} color="$gray9">
                 Inspection Result: {inspection?.result || 'Pending'}

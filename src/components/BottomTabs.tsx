@@ -30,8 +30,28 @@ export default function BottomTabs() {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: 'gray',
-        tabBarStyle: { height: 60 },
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          paddingBottom: 4,
+        },
+        tabBarStyle: {
+          height: 74,
+          paddingTop: 8,
+          paddingBottom: 8,
+          backgroundColor: '#FFFFFFF2',
+          borderTopWidth: 0,
+          shadowColor: '#0F172A',
+          shadowOpacity: 0.12,
+          shadowOffset: { width: 0, height: -3 },
+          shadowRadius: 10,
+          elevation: 10,
+        },
+        tabBarItemStyle: {
+          borderRadius: 14,
+          marginHorizontal: 6,
+        },
       })}
     >
       <Tab.Screen name="Dashboard" component={HomeScreen} />

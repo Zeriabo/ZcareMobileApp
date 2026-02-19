@@ -1,17 +1,19 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUserBookings } from '../redux/actions/BookingActions';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import { deleteBooking, fetchUserBookings, updateBooking } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
-
-const { width } = Dimensions.get('window');
+import { Colors, Spacing } from '../theme/design';
 
 const MyBookingsScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const navigation = useNavigation<any>();
   const userState = useSelector((state: RootState) => state.user.user);
   const allBookings = useSelector((state: RootState) => state.booking.bookings);
   const bookings = useMemo(
@@ -20,6 +22,7 @@ const MyBookingsScreen: React.FC = () => {
   );
 
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
   // Fetch bookings every time the screen comes into focus
   useFocusEffect(
@@ -31,28 +34,160 @@ const MyBookingsScreen: React.FC = () => {
     }, [dispatch, userState])
   );
 
-  const renderBookingItem = ({ item }: { item: any }) => (
-    <View style={styles.bookingCard}>
-      <Text style={styles.cardTitle}>Wash Ticket</Text>
+  const renderBookingItem = ({ item }: { item: any }) => {
+    const isRepairTicket =
+      item.bookingType === 'REPAIR' ||
+      !!item.repairShopId ||
+      !!item.repairItemName ||
+      !item.washingProgramId;
+
+    const statusUpper = String(item.status || (item.executed ? 'FINISHED' : 'PURCHASED')).toUpperCase();
+    const statusLabel = statusUpper.replaceAll('_', ' ');
+    const isTrackableWash =
+      !isRepairTicket &&
+      statusUpper !== 'FINISHED' &&
+      statusUpper !== 'CANCELED' &&
+      statusUpper !== 'NOT_PURCHASED';
+    const statusColor = (() => {
+      const s = statusUpper;
+      if (s === 'FINISHED') return '#16A34A';
+      if (s === 'WASHING' || s === 'QUEUING') return '#2563EB';
+      if (s === 'CANCELED' || s === 'NOT_PURCHASED') return '#DC2626';
+      if (s === 'PURCHASED') return '#0891B2';
+      return '#34C759';
+    })();
+
+    const scheduledLabel = item.scheduledTime
+      ? new Date(item.scheduledTime).toLocaleString()
+      : 'Not scheduled';
+
+    const handleCancel = () => {
+      Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingId(item.id);
+              await dispatch(deleteBooking(item.id));
+              if (userState?.token) {
+                await dispatch(fetchUserBookings(userState.token));
+              }
+            } catch (error: any) {
+              Alert.alert('Cancel failed', error?.response?.data?.message || error?.message || 'Try again later');
+            } finally {
+              setProcessingId(null);
+            }
+          },
+        },
+      ]);
+    };
+
+    const handleReschedule = async () => {
+      try {
+        setProcessingId(item.id);
+        const base = item.scheduledTime ? new Date(item.scheduledTime) : new Date();
+        base.setDate(base.getDate() + 1);
+        const isRepair = isRepairTicket;
+        const payload = {
+          carId: item.carId,
+          userId: item.userId,
+          stationId: item.stationId,
+          washingProgramId: isRepair ? null : item.washingProgramId,
+          repairShopId: isRepair ? item.repairShopId : null,
+          repairSkuId: isRepair ? item.repairSkuId : null,
+          repairItemName: isRepair ? item.repairItemName : null,
+          repairPriceAmount: isRepair ? item.repairPriceAmount : null,
+          repairPriceCurrency: isRepair ? item.repairPriceCurrency : null,
+          bookingType: isRepair ? 'REPAIR' : 'WASH',
+          executed: Boolean(item.executed),
+          scheduledTime: base.toISOString(),
+          token: userState?.token || item.token,
+        };
+        await dispatch(updateBooking(item.id, payload));
+        if (userState?.token) {
+          await dispatch(fetchUserBookings(userState.token));
+        }
+        Alert.alert('Rescheduled', 'Booking moved +1 day.');
+      } catch (error: any) {
+        Alert.alert('Reschedule failed', error?.response?.data?.message || error?.message || 'Try again later');
+      } finally {
+        setProcessingId(null);
+      }
+    };
+
+    return (
+    <AppCard style={styles.bookingCard}>
+      <Text style={styles.cardTitle}>
+        {isRepairTicket ? 'Repair Ticket' : 'Wash Ticket'}
+      </Text>
       <View style={styles.qrContainer}>
         <QRCode value={item.qr_code || item.qrCode || 'No Data'} size={180} backgroundColor="white" />
       </View>
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Station</Text>
-          <Text style={styles.value}>{item.stationName}</Text>
+          <Text style={styles.label}>
+            {isRepairTicket ? 'Repair station' : 'Station'}
+          </Text>
+          <Text style={styles.value}>
+            {isRepairTicket
+              ? (item.repairShopName || item.shopName || item.stationName || item.repairShopId || '-')
+              : (item.stationName || '-')}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.label}>Vehicle registration</Text>
-          <Text style={styles.value}>{item.carRegistrationPlate}</Text>
+          <Text style={styles.value}>{item.carRegistrationPlate || '-'}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Status</Text>
-          <Text style={[styles.value, { color: '#34C759' }]}>Active</Text>
+          <Text style={styles.label}>Scheduled</Text>
+          <Text style={styles.value}>{scheduledLabel}</Text>
         </View>
+        {isRepairTicket && (
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Repair</Text>
+            <Text style={styles.value}>{item.repairItemName || '-'}</Text>
+          </View>
+        )}
+        {!isRepairTicket && (
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Program</Text>
+            <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
+          </View>
+        )}
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Status</Text>
+          <Text style={[styles.value, { color: statusColor }]}>{statusLabel}</Text>
+        </View>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={handleCancel} disabled={processingId === item.id}>
+            {processingId === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.actionText}>Cancel</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleReschedule} disabled={processingId === item.id}>
+            {processingId === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.actionText}>Reschedule +1d</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        {isTrackableWash && (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.trackBtn]}
+            onPress={() => navigation.navigate('ActiveWash', { bookingId: Number(item.id) })}
+          >
+            <Text style={styles.actionText}>Track Live Wash</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    </View>
-  );
+    </AppCard>
+    );
+  };
 
   // Skeleton Loader
   const BookingSkeleton = () => (
@@ -81,9 +216,8 @@ const MyBookingsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Wash Tickets</Text>
-        <Text style={styles.headerSubtitle}>{bookings.length} active codes</Text>
+      <View style={styles.headerWrap}>
+        <AppHeader title="Booking tickets" subtitle={`${bookings.length} active codes`} />
       </View>
       <FlatList
         data={bookings}
@@ -97,37 +231,39 @@ const MyBookingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  headerSubtitle: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
-  listContent: { padding: 20 },
+  safeArea: { flex: 1, backgroundColor: Colors.bg },
+  headerWrap: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  listContent: { padding: Spacing.md },
   bookingCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
     marginBottom: 25,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
   },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#8E8E93', marginBottom: 15, textTransform: 'uppercase' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: Colors.textMuted, marginBottom: 15, textTransform: 'uppercase' },
   qrContainer: {
     padding: 15,
-    backgroundColor: '#FFF',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F2F2F7',
+    borderColor: Colors.border,
   },
-  detailsContainer: { width: '100%', marginTop: 20, borderTopWidth: 1, borderTopColor: '#F2F2F7', paddingTop: 15 },
+  detailsContainer: { width: '100%', marginTop: 20, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 15 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  label: { fontSize: 14, color: '#8E8E93' },
-  value: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F7' },
-  message: { fontSize: 18, color: '#8E8E93' },
+  label: { fontSize: 14, color: Colors.textMuted },
+  value: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  actionRow: { flexDirection: 'row', marginTop: 8, justifyContent: 'space-between' },
+  actionBtn: {
+    width: '48.5%',
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionDanger: { backgroundColor: Colors.danger },
+  actionText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  trackBtn: { width: '100%', marginTop: 8, backgroundColor: '#0891B2' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
+  message: { fontSize: 18, color: Colors.textMuted },
 });
 
 export default MyBookingsScreen;

@@ -78,6 +78,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [repairShops, setRepairShops] = useState<RepairShop[]>([]);
   const [repairLoading, setRepairLoading] = useState(false);
   const [repairError, setRepairError] = useState<string | null>(null);
+  const hasMapsKey =
+    !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY &&
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.trim().length > 0;
 
   const normalizedStations = useMemo(() => {
     return stations
@@ -331,6 +334,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   }
 
+  if (!hasMapsKey) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.missingKeyTitle}>Google Maps key missing</Text>
+        <Text style={styles.missingKeyText}>
+          Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in .env and rebuild Android.
+        </Text>
+      </View>
+    );
+  }
+
   const itemCount = serviceType === 'wash' ? normalizedStations.length : repairShops.length;
 
   return (
@@ -548,6 +562,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  missingKeyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  missingKeyText: {
+    fontSize: 14,
+    color: '#4b5563',
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   summaryCard: {
     position: 'absolute',

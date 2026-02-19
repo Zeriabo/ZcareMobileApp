@@ -9,11 +9,18 @@ export type RootStackParamList = {
   CheckoutScreen: undefined;
   PaymentScreen: undefined;
   PaymentConfirmation: undefined;
-  CheckoutForm: { program?: CarWashingProgram } | undefined;
+  CheckoutForm:
+    | {
+        program?: any;
+        mode?: 'wash' | 'repair';
+        repairBooking?: any;
+      }
+    | undefined;
   QrScreen: { qrCode?: string; executed?: boolean } | undefined;
   SignIn: undefined;
   SignUp:undefined;
   AddCar:undefined;
   RepairShop: { shop: RepairShop };
   AIAssistant: undefined;
+  ActiveWash: { bookingId: number };
 };

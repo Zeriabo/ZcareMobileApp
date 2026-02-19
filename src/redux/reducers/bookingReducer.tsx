@@ -32,11 +32,13 @@ const bookingReducer = (state = initialState, action: any): BookingState => {
         selectedBooking: action.payload,
       };
     case 'CREATE_BOOKING':
+    case 'CREATE_BOOKING_SUCCESS':
       return {
         ...state,
         bookings: [...state.bookings, action.payload],
       };
     case 'UPDATE_BOOKING':
+    case 'UPDATE_BOOKING_SUCCESS':
       const updatedBookings = state.bookings.map(booking =>
         booking.id === action.payload.id ? action.payload : booking,
       );
@@ -45,6 +47,7 @@ const bookingReducer = (state = initialState, action: any): BookingState => {
         bookings: updatedBookings,
       };
     case 'DELETE_BOOKING':
+    case 'DELETE_BOOKING_SUCCESS':
       const filteredBookings = state.bookings.filter(
         booking => booking.id !== action.payload,
       );

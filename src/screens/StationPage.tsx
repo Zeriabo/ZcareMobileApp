@@ -12,12 +12,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from '@react-native-vector-icons/ionicons';
 import { useDispatch, useSelector } from 'react-redux';
+import BackButton from '../components/ui/BackButton';
 import { fetchPrograms } from '../redux/actions/programsActions';
 import { selectStation } from '../redux/actions/stationActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { CarWashingProgram, RootState, Station } from '../redux/types/stationsActionTypes';
+import { goBackOrHome } from '../utils/navigation';
 import { resolveMediaUrl } from '../utils/media';
 
 type StationPageRouteProp = RouteProp<RootStackParamList, 'StationPage'>;
@@ -87,9 +89,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
 
           <View style={styles.heroOverlay} />
           <View style={styles.heroTopRow}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.iconButton}>
-              <Icon name="chevron-back" size={22} color="#111827" />
-            </Pressable>
+            <BackButton onPress={() => goBackOrHome(navigation)} backgroundColor="#ffffffee" />
             <Pressable
               onPress={() => {
                 if (hasStationCoordinates) {

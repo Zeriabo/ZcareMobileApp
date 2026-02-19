@@ -2,7 +2,8 @@
   "expo": {
     "name": "Zcare",
     "slug": "zcare",
-    "version": "1.0.0",
+    "version": "1.0.1",
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "com.zcare.auth",
       "googleServicesFile": "./GoogleService-Info.plist",
@@ -18,7 +19,13 @@
       }
     },
     "android": {
-      "usesCleartextTraffic": true
+      "package": "com.zcare.auth",
+      "versionCode": 2,
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "platforms": [
       "ios",

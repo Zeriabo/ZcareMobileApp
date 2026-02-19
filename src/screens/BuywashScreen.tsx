@@ -10,9 +10,10 @@ import {
   View,
 } from 'react-native';
 import { Button } from 'react-native-paper';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useDispatch, useSelector } from 'react-redux';
+import BackButton from '../components/ui/BackButton';
 import { create_paymentIntent } from '../redux/actions/BuyActions';
+import { goBackOrHome } from '../utils/navigation';
 import { resolveMediaUrl } from '../utils/media';
 
 type Props = {
@@ -57,14 +58,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-<TouchableOpacity
-  style={styles.backButton}
-  onPress={() => navigation.goBack()}
-  activeOpacity={0.6}
-  accessibilityLabel="Go back"
->
-  <Ionicons name="chevron-back" size={26} color="#007AFF" />
-</TouchableOpacity>
+          <BackButton onPress={() => goBackOrHome(navigation)} color="#007AFF" backgroundColor="#EFF6FF" />
 
 
           <Text style={styles.headerTitle}>{program.name}</Text>
@@ -169,17 +163,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
     paddingHorizontal: 15,
   },
- backButton: {
-  marginRight: 12,
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-
-
-
   mediaImage: { width: '100%', height: '100%', borderRadius: 12 },
 
   programType: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 8 },

@@ -6,135 +6,112 @@ import { removeSession, saveSession } from "../../utils/storage";
 import { getUserCars } from './carActions';
 import { addMessage, clearMessages } from './messageActions';
 
+let signInInFlight = false;
+
 const maskAuthPayload = (payload: any) => ({
   ...payload,
   password: payload?.password ? '***' : payload?.password,
 });
 
-const maskConfigData = (data: any) => {
-  if (!data) return data;
-  if (typeof data === 'string') {
-    try {
-      return maskAuthPayload(JSON.parse(data));
-    } catch {
-      return data;
-    }
-  }
-  return maskAuthPayload(data);
+const getAuthEndpoint = (baseUrlRaw: string): string | null => {
+  const baseUrl = (baseUrlRaw || '').trim().replace(/\/+$/, '');
+  if (!baseUrl) return null;
+  return `${baseUrl}/users/signin`;
 };
 
 export const signIn = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {
-  const signInUrl = `${process.env.EXPO_PUBLIC_SERVER_URL}/users/signin`;
-  console.log('[signIn] URL:', signInUrl);
-  console.log('[signIn] Request body (safe):', maskAuthPayload(userData));
+    if (signInInFlight) return;
+    signInInFlight = true;
 
- try {
-  const response = await axios.post(
-    signInUrl,
-    userData,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      timeout: 15000,
-    },
-  );
-  console.log('[signIn] Response status:', response.status);
-  console.log('[signIn] Response data:', response.data);
-await displayLocalNotification(
-          'Sign In Successful', 
-          `Welcome, ${response.data.firstName || 'User'}!`
-        );
+    const sanitizedUserData = {
+      ...userData,
+      username: typeof userData?.username === 'string' ? userData.username.trim() : userData?.username,
+      email: typeof userData?.email === 'string' ? userData.email.trim() : userData?.email,
+    };
+    const authEndpoint = getAuthEndpoint(process.env.EXPO_PUBLIC_SERVER_URL || '');
+    console.log('[signIn] endpoint:', authEndpoint);
+    console.log('[signIn] Request body (safe):', maskAuthPayload(sanitizedUserData));
 
-await saveSession(response.data); 
+    let lastError: any = null;
+    const requestTimeout = 6000;
 
-
-  dispatch({ type: 'SIGN_IN_SUCCESS', payload: response.data });
-  dispatch(getUserCars(response.data.token));
-} catch (error: any) {
-  console.log('Sign in error:', {
-    message: error?.message,
-    code: error?.code,
-    status: error?.response?.status,
-    data: error?.response?.data,
-    config: {
-      url: error?.config?.url,
-      method: error?.config?.method,
-      timeout: error?.config?.timeout,
-      headers: error?.config?.headers,
-      data: maskConfigData(error?.config?.data),
-    },
-  });
-
-  if (axios.isAxiosError(error) && !error.response) {
     try {
-      const fallbackResponse = await fetch(signInUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-      console.log('[signIn][fetch] Request body (safe):', maskAuthPayload(userData));
-      console.log('[signIn][fetch] Status:', fallbackResponse.status);
-
-      if (fallbackResponse.ok) {
-        const data = await fallbackResponse.json();
-        console.log('[signIn][fetch] Succeeded with data:', data);
-        await displayLocalNotification(
-          'Sign In Successful',
-          `Welcome, ${data.firstName || 'User'}!`,
+      if (!authEndpoint) {
+        dispatch(
+          addMessage({
+            id: 1,
+            text: 'Missing EXPO_PUBLIC_SERVER_URL',
+            status: 500,
+          }),
         );
-        await saveSession(data);
-        dispatch({ type: 'SIGN_IN_SUCCESS', payload: data });
-        dispatch(getUserCars(data.token));
         return;
       }
 
-      const fallbackText = await fallbackResponse.text();
+      try {
+        const response = await axios.post(
+          authEndpoint,
+          sanitizedUserData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            timeout: requestTimeout,
+          },
+        );
+        await displayLocalNotification(
+          'Sign In Successful',
+          `Welcome, ${response.data.firstName || 'User'}!`
+        );
+        await saveSession(response.data);
+        dispatch({ type: 'SIGN_IN_SUCCESS', payload: response.data });
+        dispatch(getUserCars(response.data.token));
+        return;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          dispatch(
+            addMessage({
+              id: 1,
+              text:
+                error?.response?.data?.message ||
+                JSON.stringify(error?.response?.data) ||
+                'Invalid credentials',
+              status,
+            }),
+          );
+          return;
+        }
+      }
+
+      const finalStatus = lastError?.response?.status || 500;
+      const finalMessage =
+        lastError?.response?.data?.message ||
+        (typeof lastError?.response?.data === 'string' ? lastError?.response?.data : '') ||
+        lastError?.message ||
+        'Network Error';
+
       dispatch(
         addMessage({
           id: 1,
-          text: `Sign in failed (${fallbackResponse.status}): ${fallbackText}`,
-          status: fallbackResponse.status,
+          text: finalMessage,
+          status: finalStatus,
         }),
       );
-    } catch (fallbackError: any) {
-      console.log('Fetch fallback failed:', fallbackError?.message || fallbackError);
-      dispatch(
-        addMessage({
-          id: 1,
-          text: fallbackError?.message || 'Network Error',
-          status: 500,
-        }),
-      );
+      console.log('[signIn] final error:', {
+        message: finalMessage,
+        status: finalStatus,
+        lastUrl: lastError?.config?.url,
+      });
+    } finally {
+      signInInFlight = false;
+      setTimeout(() => {
+        dispatch(clearMessages());
+      }, 2000);
     }
-    setTimeout(() => {
-      dispatch(clearMessages());
-    }, 2000);
-    return;
-  }
-
-  dispatch(
-    addMessage({
-      id: 1,
-      text:
-        error.response?.data?.message ||
-        JSON.stringify(error.response?.data) ||
-        error.message,
-      status: 500,
-    })
-  );
-
-  setTimeout(() => {
-    dispatch(clearMessages());
-  }, 2000);
-}
-
-};
+  };
 };
 export const signUp = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {

@@ -17,6 +17,7 @@ import RegisterCarScreen from './src/screens/RegisterCarScreen';
 import AIAssistantScreen from './src/screens/AIAssistantScreen';
 import RepairShopScreen from './src/screens/RepairShopScreen';
 import StationPage from './src/screens/StationPage';
+import ActiveWashScreen from './src/screens/ActiveWashScreen';
 // Redux actions and helpers
 import { getMessaging, onMessage } from '@react-native-firebase/messaging';
 import { TamaguiProvider, Theme } from 'tamagui';
@@ -108,6 +109,7 @@ function AppContent() {
             <RootStack.Screen name="AddCar" component={AddCar} />
             <RootStack.Screen name="RepairShop" component={RepairShopScreen} />
             <RootStack.Screen name="AIAssistant" component={AIAssistantScreen} />
+            <RootStack.Screen name="ActiveWash" component={ActiveWashScreen} />
       
           </RootStack.Navigator>
         </NavigationContainer>

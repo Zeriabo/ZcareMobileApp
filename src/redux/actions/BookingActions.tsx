@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 import { Dispatch } from 'redux';
-import { displayLocalNotification } from '../../utils/notifications';
+import { displayLocalNotification, scheduleBookingReminder } from '../../utils/notifications';
 import { AppDispatch } from '../store';
 
 // Action Types
@@ -98,6 +98,14 @@ export const createBooking = (bookingInput: any) => {
                 'Booking Successful', 
                 `${(!response.data.executed)?'Valid':'Not Valid'}`
               );
+      const isRepair =
+        response?.data?.bookingType === 'REPAIR' ||
+        !!response?.data?.repairShopId ||
+        !response?.data?.washingProgramId;
+      await scheduleBookingReminder(
+        bookingInput?.scheduledTime || response?.data?.scheduledTime,
+        isRepair ? 'Repair booking' : 'Wash booking'
+      );
       
       // ✅ Return response data so the component can use it
       return response.data;
@@ -111,20 +119,45 @@ export const createBooking = (bookingInput: any) => {
 export const updateBooking = (bookingId: any, booking: any) => {
   return async (dispatch: any) => {
     try {
-      const response = await axios.put(
-        process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
-        booking,
-      );
+      const base = process.env.EXPO_PUBLIC_SERVER_URL;
+      let response: any;
+      const attempts = [
+        () => axios.patch(`${base}/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => axios.patch(`${base}/booking/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => axios.put(`${base}/booking/${bookingId}`, booking),
+        () => axios.put(`${base}/v1/bookings/${bookingId}`, booking),
+        () => axios.patch(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+        () => axios.patch(`${base}/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+      ];
+
+      let lastError: any = null;
+      for (const attempt of attempts) {
+        try {
+          response = await attempt();
+          if (response) break;
+        } catch (error: any) {
+          lastError = error;
+          // only continue fallback on not-found/method-not-allowed
+          if (![404, 405].includes(error?.response?.status)) {
+            throw error;
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Update booking endpoint unavailable');
+      }
+
       dispatch(updateBookingSuccess(response.data));
+      dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
             await displayLocalNotification(
                 'Booking updated Successfully!', 
                 `${response.data}!`
               );
-      
-      // Handle navigation or other actions here
+      return response.data;
     } catch (error) {
       console.log(error);
-      // Handle error messages
+      throw error;
     }
   };
 };
@@ -136,10 +169,11 @@ export const deleteBooking = (bookingId: any) => {
         process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
       );
       dispatch(deleteBookingSuccess(bookingId));
-      // Handle navigation or other actions here
+      dispatch({ type: 'DELETE_BOOKING', payload: bookingId });
+      return true;
     } catch (error) {
       console.log(error);
-      // Handle error messages
+      throw error;
     }
   };
 };

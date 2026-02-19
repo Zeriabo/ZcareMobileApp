@@ -1,6 +1,6 @@
-import notifee, { AndroidImportance } from '@notifee/react-native';
 import { getMessaging, getToken, onMessage } from '@react-native-firebase/messaging';
 import { useEffect } from 'react';
+import notifee, { AndroidImportance } from '../utils/notifeeCompat';
 
 export const useNotifications = () => {
   useEffect(() => {
@@ -10,15 +10,17 @@ export const useNotifications = () => {
     const setup = async () => {
       const messagingInstance = getMessaging();
 
-      // 1. Request permissions
-      await notifee.requestPermission();
+      if (notifee) {
+        // 1. Request permissions
+        await notifee.requestPermission();
 
-      // 2. Create a channel (Required for Android)
-      await notifee.createChannel({
-        id: 'default',
-        name: 'Default Channel',
-        importance: AndroidImportance.HIGH,
-      });
+        // 2. Create a channel (Required for Android)
+        await notifee.createChannel({
+          id: 'default',
+          name: 'Default Channel',
+          importance: AndroidImportance.HIGH,
+        });
+      }
 
       // 3. Get FCM Token
       const token = await getToken(messagingInstance);
@@ -26,6 +28,7 @@ export const useNotifications = () => {
 
       // 4. Listen for foreground messages
       unsubscribeMessaging = onMessage(messagingInstance, async remoteMessage => {
+        if (!notifee) return;
         await notifee.displayNotification({
           title: remoteMessage.notification?.title,
           body: remoteMessage.notification?.body,

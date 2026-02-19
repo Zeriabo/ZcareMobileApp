@@ -19,15 +19,39 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { createBooking } from '../redux/actions/BookingActions';
+import BackButton from './ui/BackButton';
+import { getPaymentApiBases, getSaveCardPaths } from '../utils/paymentApi';
 import { getStripeCustomerId, saveStripeCustomerId } from '../utils/storage';
+import { goBackOrHome } from '../utils/navigation';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const { confirmPayment, confirmSetupIntent } = useStripe();
   const dispatch = useDispatch<any>();
 
+  const isRepairCheckout = route?.params?.mode === 'repair' || !!route?.params?.repairBooking;
+  const repairBookingDraft = route?.params?.repairBooking;
+
+  const getInitialSelectedDate = () => {
+    const fallback = new Date(Date.now() + 30 * 60 * 1000);
+    if (!repairBookingDraft?.scheduledTime) return fallback;
+
+    const raw = String(repairBookingDraft.scheduledTime).trim();
+    let parsed: Date;
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) {
+      parsed = new Date(`${raw}:00`);
+    } else {
+      parsed = new Date(raw);
+    }
+
+    if (!Number.isFinite(parsed.getTime())) return fallback;
+    return parsed;
+  };
+
   const [selectedCar, setSelectedCar] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialSelectedDate);
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saveCard, setSaveCard] = useState(true);
@@ -35,17 +59,21 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
 
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
   const user = useSelector((state: any) => state.user?.user);
-  const stationId = useSelector((state: any) => state.station?.selectedStation.id);
+  const stationId = useSelector((state: any) => state.station?.selectedStation?.id ?? null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   React.useEffect(() => {
+    if (isRepairCheckout && repairBookingDraft?.carId) {
+      setSelectedCar(repairBookingDraft.carId);
+    }
     const load = async () => {
       const existingCustomerId = await getStripeCustomerId();
       if (existingCustomerId) {
@@ -53,52 +81,171 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       }
     };
     load();
-  }, []);
+  }, [isRepairCheckout, repairBookingDraft?.carId]);
 
   React.useEffect(() => {
-    if (customerId) {
-      fetchSavedCards(customerId);
-    }
-  }, [customerId, user?.token]);
+    fetchSavedCards(customerId || '');
+  }, [customerId, user?.token, user?.id, user?.email]);
+
+  const cardIdOf = (card: any): string | null => {
+    return String(card?.id || card?.paymentMethodId || card?.payment_method || card?.pmId || '') || null;
+  };
 
   const fetchSavedCards = async (existingCustomerId: string) => {
-    if (!existingCustomerId) return;
     setLoadingCards(true);
     try {
-      const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/payment/saved-cards`, {
-        params: { customerId: existingCustomerId },
-        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
-      });
+      const response = await tryRequests(
+        getApiBases().map(base => () =>
+          axios.get(`${base}/payment/saved-cards`, {
+            params: {
+              customerId: existingCustomerId || undefined,
+              userId: user?.id || undefined,
+              email: user?.email || undefined,
+            },
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          })
+        )
+      );
       const cards = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.cards)
           ? response.data.cards
           : [];
       setSavedCards(cards);
+      const defaultCard = cards.find((card: any) => card?.isDefault);
+      setSelectedSavedCardId(cardIdOf(defaultCard) || cardIdOf(cards[0]) || null);
     } catch {
       setSavedCards([]);
+      setSelectedSavedCardId(null);
     } finally {
       setLoadingCards(false);
     }
   };
 
+  const withAuthHeaders = () => (user?.token ? { Authorization: `Bearer ${user.token}` } : undefined);
+  const getApiBases = () => {
+    const rawBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
+    return getPaymentApiBases(rawBase);
+  };
+
+  const tryRequests = async (requests: Array<() => Promise<any>>) => {
+    let lastError: any = null;
+    for (const request of requests) {
+      try {
+        return await request();
+      } catch (e: any) {
+        lastError = e;
+        const status = e?.response?.status;
+        const noResponse = !e?.response;
+        if (noResponse || [404, 405, 500, 502, 503].includes(status)) {
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw lastError || new Error('No compatible endpoint found');
+  };
+
+  const setDefaultSavedCard = async (paymentMethodId: string) => {
+    const candidates = getApiBases().flatMap(base => [
+      () => axios.post(`${base}/payment/saved-cards/default`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+      () => axios.post(`${base}/payment/default-card`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+      () => axios.put(`${base}/payment/saved-cards/${paymentMethodId}/default`, { customerId }, { headers: withAuthHeaders() }),
+    ]);
+    await tryRequests(candidates);
+  };
+
+  const deleteSavedCard = async (paymentMethodId: string) => {
+    const candidates = getApiBases().flatMap(base => [
+      () => axios.delete(`${base}/payment/saved-cards/${paymentMethodId}`, { params: { customerId }, headers: withAuthHeaders() }),
+      () => axios.post(`${base}/payment/saved-cards/delete`, { customerId, paymentMethodId }, { headers: withAuthHeaders() }),
+    ]);
+    await tryRequests(candidates);
+  };
+
+  const persistSavedCardAfterPayment = async (paymentIntent: any) => {
+    const paymentMethodId =
+      paymentIntent?.paymentMethodId ||
+      paymentIntent?.paymentMethod ||
+      paymentIntent?.paymentMethod?.id ||
+      paymentIntent?.payment_method ||
+      null;
+    const paymentIntentId = paymentIntent?.id || paymentIntent?.paymentIntentId || null;
+    const inferredCustomerId =
+      paymentIntent?.customer ||
+      paymentIntent?.customerId ||
+      paymentIntent?.customer_id ||
+      null;
+
+    if (!paymentMethodId) return;
+
+    if (inferredCustomerId && inferredCustomerId !== customerId) {
+      setCustomerId(inferredCustomerId);
+      await saveStripeCustomerId(inferredCustomerId);
+    }
+
+    const payload = {
+      customerId: inferredCustomerId || customerId || undefined,
+      stripeCustomerId: inferredCustomerId || customerId || undefined,
+      userId: user?.id || undefined,
+      email: user?.email || undefined,
+      paymentMethodId,
+      paymentIntentId: paymentIntentId || undefined,
+      setDefault: true,
+      makeDefault: true,
+      token: user?.token,
+    };
+
+    const response = await tryRequests(
+      getApiBases().flatMap(base =>
+        getSaveCardPaths().map(path => () => axios.post(`${base}${path}`, payload, { headers: withAuthHeaders() }))
+      )
+    );
+
+    const nextCustomerId =
+      response?.data?.customerId ||
+      response?.data?.customer ||
+      response?.data?.stripeCustomerId ||
+      response?.data?.customer_id ||
+      null;
+
+    const effectiveCustomerId = nextCustomerId || inferredCustomerId || customerId || '';
+    if (nextCustomerId && nextCustomerId !== customerId) {
+      setCustomerId(nextCustomerId);
+      await saveStripeCustomerId(nextCustomerId);
+    }
+    await fetchSavedCards(effectiveCustomerId);
+  };
+
   const setupCardForFuture = async () => {
     const payload = {
       token: user?.token,
+      userId: user?.id,
       customerId,
       name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Customer',
       email: user?.email || '',
     };
 
-    const setupIntentResponse = await axios.post(
-      `${process.env.EXPO_PUBLIC_SERVER_URL}/payment/create-setup-intent`,
-      payload,
-      {
-        headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
-      }
+    const setupIntentResponse = await tryRequests(
+      getApiBases().flatMap(base => [
+        () =>
+          axios.post(`${base}/payment/create-setup-intent`, payload, {
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          }),
+        () =>
+          axios.post(`${base}/payment/setup-intent`, payload, {
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : undefined,
+          }),
+      ])
     );
 
-    const setupClientSecret = setupIntentResponse?.data?.clientSecret;
+    const setupClientSecret =
+      (typeof setupIntentResponse?.data === 'string' ? setupIntentResponse.data : null) ||
+      setupIntentResponse?.data?.clientSecret ||
+      setupIntentResponse?.data?.client_secret ||
+      setupIntentResponse?.data?.setupIntentClientSecret ||
+      setupIntentResponse?.data?.setup_intent_client_secret ||
+      null;
     const nextCustomerId =
       setupIntentResponse?.data?.customerId ||
       setupIntentResponse?.data?.customer ||
@@ -135,18 +282,34 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   // Helper to show the car selection menu
   const showVehiclePicker = () => {
     const carOptions = cars.map((car: any) => `${car.manufacture} (${car.registerationPlate || 'No Plate'})`);
-    
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: ['Cancel', ...carOptions],
-        cancelButtonIndex: 0,
-        title: 'Select Vehicle',
-      },
-      (buttonIndex) => {
-        if (buttonIndex > 0) {
-          setSelectedCar(cars[buttonIndex - 1].carId);
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', ...carOptions],
+          cancelButtonIndex: 0,
+          title: 'Select Vehicle',
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            setSelectedCar(cars[buttonIndex - 1].carId);
+          }
         }
-      }
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Select Vehicle',
+      undefined,
+      [
+        ...cars.map((car: any) => ({
+          text: `${car.manufacture} (${car.registerationPlate || 'No Plate'})`,
+          onPress: () => setSelectedCar(car.carId),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -156,9 +319,16 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     return pi.clientSecret || pi.client_secret || pi.paymentIntentClientSecret || null;
   };
 
+  const formatDateTime = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const handlePayment = async () => {
     if (!selectedCar) return Alert.alert('Error', 'Please select a car');
-    if (!cardDetails?.complete) return Alert.alert('Error', 'Please enter valid card details');
+    if (!selectedSavedCardId && !cardDetails?.complete) {
+      return Alert.alert('Error', 'Please enter valid card details or choose a saved card');
+    }
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -174,36 +344,98 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     setLoading(true);
     try {
       setSaveCardStatus(null);
+      let cardSavedDuringSetup = false;
       if (saveCard) {
         try {
           await setupCardForFuture();
+          cardSavedDuringSetup = true;
           setSaveCardStatus('Card saved for next time.');
         } catch (saveError: any) {
-          setSaveCardStatus('Could not save card.');
-          Alert.alert('Card not saved', saveError?.message || 'Payment will continue, but card was not saved.');
+          const msg = saveError?.response?.data?.message || saveError?.message || 'Could not save card.';
+          setSaveCardStatus(`Could not save card: ${msg}`);
+          Alert.alert('Card save failed', msg);
+          return;
         }
       }
 
-      const result = await (confirmPayment as any)(clientSecret, {
-        paymentMethodType: 'Card',
-        paymentMethodData: {
-          card: cardDetails,
-          billingDetails: { name: user?.name ?? 'Customer' },
-        },
-      });
+      const result = selectedSavedCardId
+        ? await (confirmPayment as any)(clientSecret, {
+            paymentMethodType: 'Card',
+            paymentMethodData: {
+              paymentMethodId: selectedSavedCardId,
+              billingDetails: { name: user?.name ?? 'Customer' },
+            },
+          })
+        : await (confirmPayment as any)(clientSecret, {
+            paymentMethodType: 'Card',
+            paymentMethodData: {
+              card: cardDetails,
+              billingDetails: { name: user?.name ?? 'Customer' },
+            },
+          });
+
+      if (result?.error) {
+        const stripeMessage =
+          result.error.localizedMessage ||
+          result.error.message ||
+          'Payment confirmation failed.';
+        console.log('[payment] Stripe confirm error:', result.error);
+        Alert.alert('Payment Failed', stripeMessage);
+        return;
+      }
 
       if (result?.paymentIntent?.status?.toLowerCase() === 'succeeded') {
-        const bookingPayload = {
-          carId: selectedCar,
-          userId: user.id,
-          stationId,
-          washingProgramId: route.params?.program?.id,
-          scheduledTime: selectedDate.toISOString(),
-          token: user.token,
-          executed: false,
-        };
+        if (saveCard && !cardSavedDuringSetup) {
+          try {
+            await persistSavedCardAfterPayment(result.paymentIntent);
+            setSaveCardStatus('Card saved for next time.');
+          } catch (saveError: any) {
+            const msg =
+              saveError?.response?.data?.message ||
+              (typeof saveError?.response?.data === 'string' ? saveError.response.data : null) ||
+              saveError?.message ||
+              'Could not save card.';
+            setSaveCardStatus(`Could not save card: ${msg}`);
+            Alert.alert('Card save failed', msg);
+          }
+        }
 
-        const bookingResponse: any = await dispatch(createBooking(bookingPayload));
+        let bookingResponse: any;
+        if (isRepairCheckout) {
+          const dt = selectedDate;
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const ms = String(dt.getMilliseconds()).padStart(3, '0');
+          const localDateTime = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}.${ms}`;
+          const repairPayload = {
+            ...repairBookingDraft,
+            carId: selectedCar,
+            userId: user?.id,
+            token: user?.token,
+            scheduledTime: localDateTime,
+          };
+          const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
+          try {
+            bookingResponse = (await axios.post(`${base}/booking/repair`, repairPayload)).data;
+          } catch (error: any) {
+            if (error?.response?.status === 404) {
+              bookingResponse = (await axios.post(`${base}/v1/bookings/repair`, repairPayload)).data;
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          const bookingPayload = {
+            carId: selectedCar,
+            userId: user.id,
+            stationId,
+            washingProgramId: route.params?.program?.id,
+            scheduledTime: selectedDate.toISOString(),
+            token: user.token,
+            executed: false,
+          };
+          bookingResponse = await dispatch(createBooking(bookingPayload));
+        }
+
         const qrCode = bookingResponse?.qrCode || bookingResponse?.qr_code;
         if (qrCode) {
           navigation.replace('QrScreen', { qrCode });
@@ -211,10 +443,22 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           Alert.alert('Booking Error', 'Payment succeeded but booking failed.');
         }
       } else {
-        Alert.alert('Payment Failed', 'Transaction declined.');
+        const status = result?.paymentIntent?.status || 'unknown';
+        console.log('[payment] Unexpected payment intent status:', status, result?.paymentIntent);
+        Alert.alert('Payment Failed', `Transaction not completed (${status}).`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Payment error occurred.');
+      const backendMessage =
+        error?.response?.data?.message ||
+        (typeof error?.response?.data === 'string' ? error.response.data : null) ||
+        error?.message ||
+        'Payment error occurred.';
+      console.log('[payment] handlePayment catch:', {
+        message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data,
+      });
+      Alert.alert('Error', backendMessage);
     } finally {
       setLoading(false);
     }
@@ -226,16 +470,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <Text style={styles.backIcon}>←</Text>
-              </TouchableOpacity>
+              <BackButton onPress={() => goBackOrHome(navigation)} />
               <Text style={styles.headerTitle}>Checkout</Text>
               <View style={{ width: 36 }} />
             </View>
 
             <View style={styles.programCard}>
-              <Text style={styles.headerSubtitle}>Selected Program</Text>
-              <Text style={styles.programName}>{route.params?.program?.name || 'Wash Program'}</Text>
+              <Text style={styles.headerSubtitle}>{isRepairCheckout ? 'Selected Service' : 'Selected Program'}</Text>
+              <Text style={styles.programName}>{route.params?.program?.name || (isRepairCheckout ? 'Repair Service' : 'Wash Program')}</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.currency}>€</Text>
                 <Text style={styles.priceText}>{Number(route.params?.program?.price || 0).toFixed(2)}</Text>
@@ -245,9 +487,30 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Booking Details</Text>
 
-              <TouchableOpacity style={styles.inputRow} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => {
+                  setPickerMode('date');
+                  setShowPicker(true);
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.inputLabel}>Date</Text>
-                <Text style={styles.inputValue}>{selectedDate.toDateString()}</Text>
+                <Text style={styles.inputValue}>{formatDateTime(selectedDate)}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => {
+                  setPickerMode('time');
+                  setShowPicker(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.inputLabel}>Time</Text>
+                <Text style={styles.inputValue}>
+                  {selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.inputRow} onPress={showVehiclePicker} activeOpacity={0.8}>
@@ -279,11 +542,52 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
               ) : savedCards.length > 0 ? (
                 <View style={styles.savedCardsWrap}>
                   <Text style={styles.savedCardsTitle}>Saved cards</Text>
-                  {savedCards.map((card: any) => (
-                    <Text key={card.id || card.paymentMethodId || card.last4} style={styles.savedCardItem}>
-                      {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
-                    </Text>
-                  ))}
+                  {savedCards.map((card: any) => {
+                    const cardId = cardIdOf(card) || `${card.last4}`;
+                    const selected = cardId === selectedSavedCardId;
+                    return (
+                      <View key={cardId} style={[styles.savedCardRow, selected && styles.savedCardRowSelected]}>
+                        <TouchableOpacity
+                          onPress={() => setSelectedSavedCardId(cardId)}
+                          activeOpacity={0.8}
+                          style={{ flex: 1 }}
+                        >
+                          <Text style={styles.savedCardItem}>
+                            {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            try {
+                              await setDefaultSavedCard(cardId);
+                              await fetchSavedCards(customerId || '');
+                              setSaveCardStatus('Default card updated.');
+                            } catch (e: any) {
+                              Alert.alert('Could not set default', e?.response?.data?.message || e?.message || 'Try again later.');
+                            }
+                          }}
+                          style={styles.savedCardAction}
+                        >
+                          <Text style={styles.savedCardActionText}>Default</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            try {
+                              await deleteSavedCard(cardId);
+                              if (selectedSavedCardId === cardId) setSelectedSavedCardId(null);
+                              await fetchSavedCards(customerId || '');
+                              setSaveCardStatus('Card removed.');
+                            } catch (e: any) {
+                              Alert.alert('Could not delete card', e?.response?.data?.message || e?.message || 'Try again later.');
+                            }
+                          }}
+                          style={[styles.savedCardAction, styles.savedCardDanger]}
+                        >
+                          <Text style={[styles.savedCardActionText, styles.savedCardDangerText]}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
                 </View>
               ) : (
                 <Text style={styles.savedCardHint}>No saved cards yet.</Text>
@@ -294,13 +598,29 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             {showPicker && (
               <DateTimePicker
                 value={selectedDate}
-                mode="date"
+                mode={pickerMode}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_event, date) => {
-                  setShowPicker(false);
-                  if (date) setSelectedDate(date);
+                onChange={(event, date) => {
+                  if (!date) {
+                    if (Platform.OS === 'android') setShowPicker(false);
+                    return;
+                  }
+
+                  setSelectedDate(prev => {
+                    const next = new Date(prev);
+                    if (pickerMode === 'date') {
+                      next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                    } else {
+                      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                    }
+                    return next;
+                  });
+
+                  if (Platform.OS === 'android' || event?.type === 'dismissed') {
+                    setShowPicker(false);
+                  }
                 }}
-                minimumDate={new Date()}
+                minimumDate={pickerMode === 'date' ? new Date() : undefined}
               />
             )}
           </ScrollView>
@@ -324,15 +644,6 @@ const styles = StyleSheet.create({
   safeContainer: { flex: 1, backgroundColor: '#EEF2FF' },
   scrollContainer: { paddingHorizontal: 16, paddingBottom: 34 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 16 },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { fontSize: 18, color: '#111827', fontWeight: '700' },
   headerSubtitle: { color: '#6B7280', fontSize: 12, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
   programCard: {
@@ -375,7 +686,34 @@ const styles = StyleSheet.create({
   stripeCard: { width: '100%', height: 220, marginTop: 8 },
   savedCardsWrap: { marginTop: 10 },
   savedCardsTitle: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  savedCardItem: { fontSize: 13, color: '#4B5563', marginBottom: 3 },
+  savedCardRow: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  savedCardRowSelected: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#EEF2FF',
+  },
+  savedCardItem: { fontSize: 13, color: '#4B5563' },
+  savedCardAction: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  savedCardDanger: {
+    borderColor: '#DC2626',
+  },
+  savedCardActionText: { fontSize: 11, color: '#4F46E5', fontWeight: '700' },
+  savedCardDangerText: { color: '#DC2626' },
   savedCardHint: { marginTop: 8, fontSize: 12, color: '#6B7280' },
   savedCardStatus: { marginTop: 8, fontSize: 12, color: '#4F46E5', fontWeight: '700' },
   footer: {
