@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test:build": "tsc --pretty false --skipLibCheck --esModuleInterop --module commonjs --target es2020 --jsx react --outDir .test-build src/utils/calulations.ts src/utils/paymentApi.ts src/redux/reducers/authReducer.tsx src/redux/reducers/programsReducer.tsx src/redux/reducers/carReducer.tsx src/redux/actions/AuthActions.tsx",
+    "test:build": "tsc --pretty false --skipLibCheck --esModuleInterop --module commonjs --target es2020 --jsx react --outDir .test-build src/utils/calulations.ts src/utils/paymentApi.ts src/utils/media.ts src/utils/navigation.ts src/redux/reducers/authReducer.tsx src/redux/reducers/programsReducer.tsx src/redux/reducers/carReducer.tsx src/redux/actions/AuthActions.tsx",
     "test": "npm run test:build && node --test tests/**/*.test.cjs"
   },
   "dependencies": {
