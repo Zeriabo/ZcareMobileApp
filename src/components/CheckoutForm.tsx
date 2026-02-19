@@ -31,15 +31,27 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const isRepairCheckout = route?.params?.mode === 'repair' || !!route?.params?.repairBooking;
   const repairBookingDraft = route?.params?.repairBooking;
 
-  const [selectedCar, setSelectedCar] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    if (repairBookingDraft?.scheduledTime) {
-      const parsed = new Date(repairBookingDraft.scheduledTime);
-      if (Number.isFinite(parsed.getTime())) return parsed;
+  const getInitialSelectedDate = () => {
+    const fallback = new Date(Date.now() + 30 * 60 * 1000);
+    if (!repairBookingDraft?.scheduledTime) return fallback;
+
+    const raw = String(repairBookingDraft.scheduledTime).trim();
+    let parsed: Date;
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) {
+      parsed = new Date(`${raw}:00`);
+    } else {
+      parsed = new Date(raw);
     }
-    return new Date();
-  });
+
+    if (!Number.isFinite(parsed.getTime())) return fallback;
+    return parsed;
+  };
+
+  const [selectedCar, setSelectedCar] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialSelectedDate);
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saveCard, setSaveCard] = useState(true);
@@ -280,6 +292,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     return pi.clientSecret || pi.client_secret || pi.paymentIntentClientSecret || null;
   };
 
+  const formatDateTime = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const handlePayment = async () => {
     if (!selectedCar) return Alert.alert('Error', 'Please select a car');
     if (!selectedSavedCardId && !cardDetails?.complete) {
@@ -305,8 +322,10 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           await setupCardForFuture();
           setSaveCardStatus('Card saved for next time.');
         } catch (saveError: any) {
-          setSaveCardStatus('Could not save card.');
-          Alert.alert('Card not saved', saveError?.message || 'Payment will continue, but card was not saved.');
+          const msg = saveError?.response?.data?.message || saveError?.message || 'Could not save card.';
+          setSaveCardStatus(`Could not save card: ${msg}`);
+          Alert.alert('Card save failed', msg);
+          return;
         }
       }
 
@@ -417,9 +436,30 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Booking Details</Text>
 
-              <TouchableOpacity style={styles.inputRow} onPress={() => setShowPicker(true)} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => {
+                  setPickerMode('date');
+                  setShowPicker(true);
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.inputLabel}>Date</Text>
-                <Text style={styles.inputValue}>{selectedDate.toDateString()}</Text>
+                <Text style={styles.inputValue}>{formatDateTime(selectedDate)}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => {
+                  setPickerMode('time');
+                  setShowPicker(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.inputLabel}>Time</Text>
+                <Text style={styles.inputValue}>
+                  {selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.inputRow} onPress={showVehiclePicker} activeOpacity={0.8}>
@@ -507,13 +547,29 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             {showPicker && (
               <DateTimePicker
                 value={selectedDate}
-                mode="date"
+                mode={pickerMode}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_event, date) => {
-                  setShowPicker(false);
-                  if (date) setSelectedDate(date);
+                onChange={(event, date) => {
+                  if (!date) {
+                    if (Platform.OS === 'android') setShowPicker(false);
+                    return;
+                  }
+
+                  setSelectedDate(prev => {
+                    const next = new Date(prev);
+                    if (pickerMode === 'date') {
+                      next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                    } else {
+                      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                    }
+                    return next;
+                  });
+
+                  if (Platform.OS === 'android' || event?.type === 'dismissed') {
+                    setShowPicker(false);
+                  }
                 }}
-                minimumDate={new Date()}
+                minimumDate={pickerMode === 'date' ? new Date() : undefined}
               />
             )}
           </ScrollView>
