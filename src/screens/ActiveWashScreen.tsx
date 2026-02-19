@@ -63,9 +63,39 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const hasKnownStatus = (value: string) => Boolean(value && value !== 'PURCHASED');
+  const isRetryableStatus = (code?: number) => !code || code >= 500 || code === 404 || code === 405;
+
+  const pickProgress = (source: any): number | null => {
+    const candidates = [
+      source?.progress,
+      source?.progressPercent,
+      source?.washProgress,
+      source?.booking?.progress,
+      source?.booking?.progressPercent,
+      source?.booking?.washProgress,
+    ];
+    for (const candidate of candidates) {
+      const numeric = Number(candidate);
+      if (Number.isFinite(numeric)) {
+        return Math.max(0, Math.min(100, numeric));
+      }
+    }
+    return null;
+  };
+
   const readStatus = (source: any) =>
-    normalizeStatus(source?.status || (source?.executed ? 'FINISHED' : ''));
+    normalizeStatus(
+      source?.status ||
+      source?.washStatus ||
+      source?.bookingStatus ||
+      source?.booking?.status ||
+      source?.booking?.washStatus ||
+      source?.booking?.bookingStatus ||
+      (source?.executed ? 'FINISHED' : '')
+    );
   const status = readStatus(backendBooking) || readStatus(booking);
+  const visibleError = hasKnownStatus(status) ? null : error;
 
   useEffect(() => {
     let mounted = true;
@@ -80,18 +110,23 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
       ];
 
       let lastError: any = null;
+      let nextBackendBooking: any = null;
       for (const url of candidates) {
         try {
           const response = await axios.get(url);
+          if (response?.data) {
+            nextBackendBooking = response.data;
+          }
+          if (!nextBackendBooking) continue;
           if (!mounted) return;
-          setBackendBooking(response.data || null);
+          setBackendBooking(nextBackendBooking);
           setError(null);
           setLoading(false);
-          dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
+          dispatch({ type: 'UPDATE_BOOKING', payload: nextBackendBooking });
           return;
         } catch (e: any) {
           lastError = e;
-          if (![404, 405].includes(e?.response?.status)) break;
+          if (!isRetryableStatus(e?.response?.status)) break;
         }
       }
 
@@ -110,16 +145,14 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [bookingId, dispatch]);
 
   const progress = useMemo(() => {
-    const backendProgress = Number(backendBooking?.progress);
-    const bookingProgress = Number(booking?.progress);
-    if (Number.isFinite(backendProgress)) return Math.max(0, Math.min(100, backendProgress));
-    if (Number.isFinite(bookingProgress)) return Math.max(0, Math.min(100, bookingProgress));
+    const backendProgress = pickProgress(backendBooking);
+    const bookingProgress = pickProgress(booking);
+    if (typeof backendProgress === 'number') return backendProgress;
+    if (typeof bookingProgress === 'number') return bookingProgress;
     if (status.includes('FINISHED')) return 100;
     return null;
-  }, [backendBooking?.progress, booking?.progress, status]);
+  }, [backendBooking, booking, status]);
 
-  const isDone = status.includes('FINISHED');
-  const isFailed = status.includes('CANCELED') || status.includes('NOT_PURCHASED');
   const statusCopy = getStatusCopy(status);
 
   return (
@@ -144,11 +177,11 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.progressText}>{Math.round(progress)}%</Text>
         </>
       ) : (
-        <Text style={styles.progressUnknown}>Progress not provided by backend yet</Text>
+        <Text style={styles.progressUnknown}>Progress unavailable right now. Status updates are still live.</Text>
       )}
 
       <Text style={styles.statusText}>Status: {status.replaceAll('_', ' ')}</Text>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {visibleError ? <Text style={styles.errorText}>{visibleError}</Text> : null}
 
       <Pressable
         onPress={() =>
