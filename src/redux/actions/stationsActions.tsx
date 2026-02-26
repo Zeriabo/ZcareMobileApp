@@ -4,10 +4,10 @@ import { ThunkAction } from 'redux-thunk';
 import { enrichStationsWithDemoImages } from '../../data/sampleStationsData';
 import { RootState } from '../store';
 import {
-    FETCH_STATIONS_REQUEST,
-    FETCH_STATIONS_SUCCESS,
-    FETCH_STATIONS_FAILURE,
-    StationsAction
+  FETCH_STATIONS_FAILURE,
+  FETCH_STATIONS_REQUEST,
+  FETCH_STATIONS_SUCCESS,
+  StationsAction
 } from '../types/stationsActionTypes';
 
 const getStationEndpoints = (baseUrlRaw: string): string[] => {

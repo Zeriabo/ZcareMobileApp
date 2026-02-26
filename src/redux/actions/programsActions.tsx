@@ -4,9 +4,9 @@ import { ThunkAction } from 'redux-thunk';
 import { enrichProgramsWithDemoImages } from '../../data/sampleStationsData';
 import { RootState } from '../store';
 import {
+  FETCH_PROGRAMS_FAILURE,
   FETCH_PROGRAMS_REQUEST,
   FETCH_PROGRAMS_SUCCESS,
-  FETCH_PROGRAMS_FAILURE,
   ProgramsAction
 } from '../types/stationsActionTypes';
 
