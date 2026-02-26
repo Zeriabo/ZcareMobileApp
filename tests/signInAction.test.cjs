@@ -19,6 +19,9 @@ const loadSignIn = () => {
 
 const setupAuthMocks = () => {
   global.__authTestCalls = { notifications: [], sessions: [] };
+  global.__authApiClientPost = () => {
+    throw new Error('apiClient.post mock not set');
+  };
 
   ensureModule(
     'utils/notifications.js',
@@ -50,20 +53,34 @@ exports.addMessage = (message) => ({ type: 'ADD_MESSAGE', payload: message });
 exports.clearMessages = () => ({ type: 'CLEAR_MESSAGES' });
 `,
   );
+  ensureModule(
+    'utils/apiClient.js',
+    `
+exports.apiClient = {
+  post: (...args) => global.__authApiClientPost(...args),
+};
+`,
+  );
+  ensureModule(
+    'utils/logger.js',
+    `
+exports.logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+};
+`,
+  );
 };
 
 test('signIn dispatches success actions and persists session', async () => {
   process.env.EXPO_PUBLIC_SERVER_URL = 'http://example.test:8080';
   setupAuthMocks();
 
-  const axios = require('axios');
   let postedBody = null;
   let postedUrl = null;
-  axios.post = async () => ({
-    status: 200,
-    data: { firstName: 'Zeriab', token: 'abc123', id: 1 },
-  });
-  axios.post = async (url, body) => {
+  global.__authApiClientPost = async (url, body) => {
     postedUrl = url;
     postedBody = body;
     return {
@@ -71,7 +88,6 @@ test('signIn dispatches success actions and persists session', async () => {
       data: { firstName: 'Zeriab', token: 'abc123', id: 1 },
     };
   };
-  axios.isAxiosError = () => false;
 
   const signIn = loadSignIn();
   const dispatched = [];
@@ -95,7 +111,6 @@ test('signIn dispatches network message when axios and fetch both fail', async (
   process.env.EXPO_PUBLIC_SERVER_URL = 'http://example.test:8080';
   setupAuthMocks();
 
-  const axios = require('axios');
   const networkErr = new Error('Network Error');
   networkErr.code = 'ERR_NETWORK';
   networkErr.config = {
@@ -105,7 +120,7 @@ test('signIn dispatches network message when axios and fetch both fail', async (
     headers: {},
     data: JSON.stringify({ username: 'zeriab', password: '123' }),
   };
-  axios.post = async () => {
+  global.__authApiClientPost = async () => {
     throw networkErr;
   };
 
@@ -138,8 +153,7 @@ test('signIn dispatches invalid-credentials message on 401', async () => {
   process.env.EXPO_PUBLIC_SERVER_URL = 'http://example.test:8080';
   setupAuthMocks();
 
-  const axios = require('axios');
-  axios.post = async () => {
+  global.__authApiClientPost = async () => {
     const err = new Error('Request failed with status code 401');
     err.response = {
       status: 401,

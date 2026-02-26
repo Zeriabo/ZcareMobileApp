@@ -22,6 +22,12 @@ export interface Booking {
   token: string;
   qr_code:string;
   executed: boolean;
+    washType?: 'regular' | 'waterless' | 'delivery';
+    deliveryAddress?: string;
+    deliveryPhone?: string;
+    deliveryNotes?: string;
+    deliveryLatitude?: number;
+    deliveryLongitude?: number;
   createdAt: string;
   updatedAt: string;
 }

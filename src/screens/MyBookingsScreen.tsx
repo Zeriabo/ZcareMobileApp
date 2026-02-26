@@ -154,11 +154,40 @@ const MyBookingsScreen: React.FC = () => {
           <View style={styles.detailRow}>
             <Text style={styles.label}>Program</Text>
             <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
+                  {!isRepairTicket && item.washType && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.label}>Wash Type</Text>
+                      <Text style={styles.value}>
+                        {item.washType === 'waterless' ? '💧 Waterless' : 
+                         item.washType === 'delivery' ? '🚗 Delivery' : 
+                         '🏪 Regular'}
+                      </Text>
+                    </View>
+                  )}
+                  {item.washType === 'delivery' && item.deliveryAddress && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.label}>Delivery Address</Text>
+                        <Text style={[styles.value, styles.multiLine]}>{item.deliveryAddress}</Text>
+                      </View>
+                      {item.deliveryPhone && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.label}>Contact Phone</Text>
+                          <Text style={styles.value}>{item.deliveryPhone}</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
           </View>
         )}
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
           <Text style={[styles.value, { color: statusColor }]}>{statusLabel}</Text>
+            flexShrink: 1,
+          },
+          multiLine: {
+            flexWrap: 'wrap',
+            maxWidth: '70%',
         </View>
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={handleCancel} disabled={processingId === item.id}>
