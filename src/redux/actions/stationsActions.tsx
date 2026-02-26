@@ -3,10 +3,10 @@ import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
 import { RootState } from '../store';
 import {
-  FETCH_STATIONS_FAILURE,
-  FETCH_STATIONS_REQUEST,
-  FETCH_STATIONS_SUCCESS,
-  StationsAction,
+    FETCH_STATIONS_FAILURE,
+    FETCH_STATIONS_REQUEST,
+    FETCH_STATIONS_SUCCESS,
+    StationsAction,
 } from '../types/stationsActionTypes';
 
 const getStationEndpoints = (baseUrlRaw: string): string[] => {
@@ -55,7 +55,15 @@ export const fetchStations = (): ThunkAction<
           return;
         } catch (error: any) {
           lastError = error;
-          console.log('Station endpoint failed:', endpoint, error?.message || error);
+          const details = {
+            message: error?.message,
+            code: error?.code,
+            status: error?.response?.status,
+            url: error?.config?.url,
+            response: error?.response?.data,
+            toJSON: typeof error?.toJSON === 'function' ? error.toJSON() : undefined,
+          };
+          console.log('Station endpoint failed:', endpoint, JSON.stringify(details));
         }
       }
 
