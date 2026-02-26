@@ -1,13 +1,14 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
-import {
-  FETCH_WASHES_REQUEST,
-  FETCH_WASHES_SUCCESS,
-  FETCH_WASHES_FAILURE,
-  WashesAction,
-} from '../types/washesActionTypes';
-import { RootState } from '../store';
 import { ThunkAction } from 'redux-thunk';
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
+import { RootState } from '../store';
+import {
+    FETCH_WASHES_FAILURE,
+    FETCH_WASHES_REQUEST,
+    FETCH_WASHES_SUCCESS,
+    WashesAction,
+} from '../types/washesActionTypes';
 
 export const SELECT_WASHES = 'SELECT_WASHES';
 
@@ -18,16 +19,18 @@ export const fetchWashesBooked = (
     dispatch({ type: FETCH_WASHES_REQUEST });
     try {
       // Fallback implementation using REST bookings endpoint.
-      const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
+      logger.debug('Fetching booked washes', { carId });
+      const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
       const washes = Array.isArray(response.data) ? response.data : [];
       const carWashes = washes.filter((wash: any) => Number(wash?.car?.carId) === Number(carId));
 
+      logger.info('Washes fetched successfully', { count: carWashes.length, carId });
       dispatch({
         type: FETCH_WASHES_SUCCESS,
         payload: carWashes,
       });
     } catch (error: any) {
-      console.log(error);
+      logger.error('Failed to fetch washes', { carId, error: error.message });
       dispatch({
         type: FETCH_WASHES_FAILURE,
         error: error?.response?.data?.message || error?.message || 'Failed to fetch washes',

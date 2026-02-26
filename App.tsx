@@ -23,6 +23,7 @@ import { getMessaging, onMessage } from '@react-native-firebase/messaging';
 import { TamaguiProvider, Theme } from 'tamagui';
 import AddCar from './src/components/AddCar';
 import BottomTabs from './src/components/BottomTabs';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import { SocketProvider } from './src/config/SocketProvider';
 import { getUserCars } from './src/redux/actions/carActions';
 import { RootStackParamList } from './src/redux/types/stackParams';
@@ -46,8 +47,10 @@ function App() {
 
     <SafeAreaProvider>
       <Provider store={store}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <AppContent />
+        <ErrorBoundary>
+          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+          <AppContent />
+        </ErrorBoundary>
       </Provider>
     </SafeAreaProvider>
         </Theme>
@@ -76,7 +79,6 @@ function AppContent() {
     async function restoreSession() {
       const session = await getSession();
       if (session?.token) {
-        console.log('✅ Restored session:', session.token);
         dispatch({ type: 'SIGN_IN_SUCCESS', payload: session });
         dispatch(getUserCars(session.token));
       }

@@ -1,5 +1,6 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import Car from '../types/CarType';
 import { addMessage, clearMessages } from './messageActions';
 
@@ -36,13 +37,14 @@ export const deleteCarSuccess = (carId: Number) => ({
 export const registerCar: any = (userCar: any) => {
   return async (dispatch: Dispatch<any>) => {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post<any>(
         process.env.EXPO_PUBLIC_SERVER_URL + '/cars/register',
         userCar,
       );
 
       if (response.status === 201) {
         // Car registered successfully
+        logger.info('Car registered successfully', { car: userCar });
         dispatch(
           addMessage({
             id: 1,
@@ -55,6 +57,7 @@ export const registerCar: any = (userCar: any) => {
           dispatch(clearMessages());
         }, 2000);
       } else {
+        logger.warn('Car registration failed', { status: response.status });
         dispatch(
           addMessage({
             id: 1,
@@ -67,6 +70,7 @@ export const registerCar: any = (userCar: any) => {
         }, 2000);
       }
     } catch (error) {
+      logger.error('Failed to register car', { error });
       dispatch(
         addMessage({
           id: 1,
@@ -84,11 +88,12 @@ export const registerCar: any = (userCar: any) => {
 export const getCar = (registrationPlate: string) => {
   return async (dispatch: Dispatch) => {
     try {
-      const response = await axios.get(
+      const response = await apiClient.get<any>(
         process.env.EXPO_PUBLIC_SERVER_URL+ `/cars/${registrationPlate}`,
       );
       dispatch(getCarSuccess(response.data));
     } catch (error: any) {
+      logger.error('Failed to get car', { registrationPlate, error });
       dispatch(
         addMessage({
           id: 1,
@@ -103,14 +108,15 @@ export const getCar = (registrationPlate: string) => {
 export const getUserCars = (token: string) => {
   return async (dispatch: Dispatch) => {
     try {
-    const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/cars/user`, {
+    const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/cars/user`, {
   headers: {
     Authorization: `Bearer ${token}`,
   },
 });
+      logger.info('User cars fetched successfully', { count: response.data?.length });
       dispatch(getUserCarsSuccess(response.data));
     } catch (err: any) {
-      console.log("getUserCars error:", err);
+      logger.error('Failed to get user cars', { error: err.message });
 
       const message =
         err.response?.data?.message ||
@@ -133,19 +139,20 @@ export const getUserCars = (token: string) => {
 export const setCarOwner = (userCar: any) => {
   return async (dispatch: Dispatch) => {
     try {
-      await axios.post(process.env.EXPO_PUBLIC_SERVER_URL + '/cars/set', userCar);
+      await apiClient.post(process.env.EXPO_PUBLIC_SERVER_URL + '/cars/set', userCar);
+      logger.info('Car owner set successfully');
       dispatch(setCarOwnerSuccess());
     } catch (error) {
-      // Handle error
+      logger.error('Failed to set car owner', { error });
     }
   };
 };
 export const deleteCar = (payload: { carId: number; token: string }) => {
-  console.log("Deleting car:", payload);
+  logger.debug('Deleting car', { carId: payload.carId });
 
   return async (dispatch: any) => {
     try {
-      const response = await axios.delete(
+      const response = await apiClient.delete<any>(
         `${process.env.EXPO_PUBLIC_SERVER_URL}/cars/`,
         {
           headers: { 'Content-Type': 'application/json' },
@@ -157,6 +164,7 @@ export const deleteCar = (payload: { carId: number; token: string }) => {
       );
 
       if (response.status === 202) {
+        logger.info('Car deleted successfully', { carId: payload.carId });
         dispatch(deleteCarSuccess(payload.carId));
 
         // ✅ Dispatch proper message object
@@ -171,6 +179,7 @@ export const deleteCar = (payload: { carId: number; token: string }) => {
         // Refresh user cars
         dispatch(getUserCars(payload.token));
       } else {
+        logger.warn('Car deletion failed', { status: response.status });
         dispatch(
           addMessage({
             id: Date.now(),
@@ -182,7 +191,7 @@ export const deleteCar = (payload: { carId: number; token: string }) => {
 
       setTimeout(() => dispatch(clearMessages()), 2000);
     } catch (error: any) {
-      console.error('Delete Car Error:', error.toJSON?.() || error);
+      logger.error('Failed to delete car', { carId: payload.carId, error });
       dispatch(
         addMessage({
           id: Date.now(),

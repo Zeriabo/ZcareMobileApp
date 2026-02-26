@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
-
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import { displayLocalNotification } from '../../utils/notifications';
 import { removeSession, saveSession } from "../../utils/storage";
 import { getUserCars } from './carActions';
@@ -30,8 +30,7 @@ export const signIn = (userData: any) => {
       email: typeof userData?.email === 'string' ? userData.email.trim() : userData?.email,
     };
     const authEndpoint = getAuthEndpoint(process.env.EXPO_PUBLIC_SERVER_URL || '');
-    console.log('[signIn] endpoint:', authEndpoint);
-    console.log('[signIn] Request body (safe):', maskAuthPayload(sanitizedUserData));
+    logger.debug('Sign in attempt', { endpoint: authEndpoint, username: sanitizedUserData.username });
 
     let lastError: any = null;
     const requestTimeout = 6000;
@@ -49,7 +48,7 @@ export const signIn = (userData: any) => {
       }
 
       try {
-        const response = await axios.post(
+        const response = await apiClient.post<any>(
           authEndpoint,
           sanitizedUserData,
           {
@@ -60,6 +59,7 @@ export const signIn = (userData: any) => {
             timeout: requestTimeout,
           },
         );
+        logger.info('Sign in successful', { username: sanitizedUserData.username });
         await displayLocalNotification(
           'Sign In Successful',
           `Welcome, ${response.data.firstName || 'User'}!`
@@ -72,6 +72,7 @@ export const signIn = (userData: any) => {
         lastError = error;
         const status = error?.response?.status;
         if (status === 401 || status === 403) {
+          logger.warn('Sign in failed - invalid credentials', { status });
           dispatch(
             addMessage({
               id: 1,
@@ -100,11 +101,7 @@ export const signIn = (userData: any) => {
           status: finalStatus,
         }),
       );
-      console.log('[signIn] final error:', {
-        message: finalMessage,
-        status: finalStatus,
-        lastUrl: lastError?.config?.url,
-      });
+      logger.error('Sign in failed', { message: finalMessage, status: finalStatus });
     } finally {
       signInInFlight = false;
       setTimeout(() => {
@@ -115,43 +112,47 @@ export const signIn = (userData: any) => {
 };
 export const signUp = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {
-    await axios
-      .post(process.env.EXPO_PUBLIC_SERVER_URL + '/users/register', userData)
-      .then((response: any) => {
+    try {
+      logger.debug('Sign up attempt', { username: userData.username });
+      const response = await apiClient.post<any>(
+        process.env.EXPO_PUBLIC_SERVER_URL + '/users/register',
+        userData
+      );
+      logger.info('Sign up successful', { username: userData.username });
+      dispatch(
+        addMessage({
+          id: 1,
+          text: 'Registeration successful',
+          status: 200,
+        }),
+      );
+      dispatch({type: 'SIGN_UP_SUCCESS', payload: response.data});
+    } catch (error: any) {
+      logger.error('Sign up failed', { error: error.message });
+      if (error.response.status == 500) {
         dispatch(
           addMessage({
             id: 1,
-            text: 'Registeration successful',
-            status: 200,
+            text: error.response.data,
+            status: 500,
           }),
         );
-        dispatch({type: 'SIGN_UP_SUCCESS', payload: response.data});
-      })
-      .catch((error: any) => {
-        if (error.response.status == 500) {
-          dispatch(
-            addMessage({
-              id: 1,
-              text: error.response.data,
-              status: 500,
-            }),
-          );
-          dispatch({type: 'SIGN_UP_FAILED', payload: error.response.data});
-        } else {
-          dispatch(
-            addMessage({
-              id: error.response.status,
-              text: error.response.data,
-              status: 500,
-            }),
-          );
-          dispatch({type: 'SIGN_UP_FAILED', payload: error.response.data});
-        }
+        dispatch({type: 'SIGN_UP_FAILED', payload: error.response.data});
+      } else {
+        dispatch(
+          addMessage({
+            id: error.response.status,
+            text: error.response.data,
+            status: 500,
+          }),
+        );
+        dispatch({type: 'SIGN_UP_FAILED', payload: error.response.data});
+      }
 
-        setTimeout(() => {
-          dispatch(clearMessages());
-        }, 2000);
-      });
+      setTimeout(() => {
+        dispatch(clearMessages());
+      }, 2000);
+    }
   };
 };
 export const signOut = () => {

@@ -1,7 +1,8 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
 import { enrichProgramsWithDemoImages } from '../../data/sampleStationsData';
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import { RootState } from '../store';
 import {
   FETCH_PROGRAMS_FAILURE,
@@ -45,7 +46,8 @@ export const fetchPrograms = (stationId: string): ThunkAction<
 
       for (const endpoint of programEndpoints) {
         try {
-          const response = await axios.get(endpoint, { timeout: 10000 });
+          logger.debug('Fetching programs', { endpoint, stationId });
+          const response = await apiClient.get<any>(endpoint, { timeout: 10000 });
           const programs = response.data || [];
           // Enrich with demo images if backend data is missing pictures
           const enrichedPrograms = enrichProgramsWithDemoImages(programs);
@@ -53,15 +55,17 @@ export const fetchPrograms = (stationId: string): ThunkAction<
             type: FETCH_PROGRAMS_SUCCESS,
             payload: enrichedPrograms,
           });
+          logger.info('Programs fetched successfully', { count: enrichedPrograms.length, stationId });
           return;
         } catch (error: any) {
           lastError = error;
-          console.log('Program endpoint failed:', endpoint, error?.message);
+          logger.warn('Program endpoint failed', { endpoint, error: error.message });
         }
       }
 
       throw lastError || new Error('Failed to fetch programs');
     } catch (error: any) {
+      logger.error('Failed to fetch programs', { error: error.message, stationId });
       dispatch({
         type: FETCH_PROGRAMS_FAILURE,
         error: error?.message || 'Failed to fetch programs',

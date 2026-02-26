@@ -1,7 +1,8 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
 import { enrichStationsWithDemoImages } from '../../data/sampleStationsData';
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import { RootState } from '../store';
 import {
   FETCH_STATIONS_FAILURE,
@@ -46,7 +47,8 @@ export const fetchStations = (): ThunkAction<
 
       for (const endpoint of stationEndpoints) {
         try {
-          const response = await axios.get(endpoint, { timeout: 10000 });
+          logger.debug('Fetching stations', { endpoint });
+          const response = await apiClient.get<any>(endpoint, { timeout: 10000 });
           const stations = response.data || [];
           // Enrich with demo images if backend data is missing pictures
           const enrichedStations = enrichStationsWithDemoImages(stations);
@@ -54,14 +56,17 @@ export const fetchStations = (): ThunkAction<
             type: FETCH_STATIONS_SUCCESS,
             payload: enrichedStations,
           });
+          logger.info('Stations fetched successfully', { count: enrichedStations.length });
           return;
         } catch (error: any) {
           lastError = error;
+          logger.warn('Failed to fetch from endpoint', { endpoint, error: error.message });
         }
       }
 
       throw lastError || new Error('Failed to fetch stations');
     } catch (error: any) {
+      logger.error('Failed to fetch stations', { error: error.message });
       dispatch({
         type: FETCH_STATIONS_FAILURE,
         error: error?.message || 'Failed to fetch stations',

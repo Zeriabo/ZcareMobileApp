@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { Dispatch } from 'redux';
-
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import { displayLocalNotification } from '../../utils/notifications';
 import { updateBookingSuccess } from './BookingActions';
 import { addMessage, clearMessages } from './messageActions';
@@ -13,26 +13,27 @@ export const buyWash = (program: any) => {
 
 export const checkout = (program: any) => {
   return async (dispatch: Dispatch<any>) => {
-    await axios
-      .post(
+    try {
+      logger.debug('Processing checkout', { program });
+      const response = await apiClient.post<any>(
         process.env.EXPO_PUBLIC_SERVER_URL+ '/payment/create-payment-intent',
         program
-      )
-      .then(response => {
-        dispatch({type: 'CHECKOUT_SUCCESS', payload: response.data});
-      })
-      .catch(error => {
-        dispatch(
-          addMessage({
-            id: 1,
-            text: error.response?.data || 'Payment failed',
-            status: 0,
-          }),
-        );
-        setTimeout(() => {
-          dispatch(clearMessages());
-        }, 2000);
-      });
+      );
+      logger.info('Checkout successful');
+      dispatch({type: 'CHECKOUT_SUCCESS', payload: response.data});
+    } catch (error: any) {
+      logger.error('Checkout failed', { error: error.message });
+      dispatch(
+        addMessage({
+          id: 1,
+          text: error.response?.data || 'Payment failed',
+          status: 0,
+        }),
+      );
+      setTimeout(() => {
+        dispatch(clearMessages());
+      }, 2000);
+    }
   };
 };
 
@@ -59,17 +60,19 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
       },
     };
 
-    console.log('Payment Request:', paymentRequest);
+    logger.debug('Creating payment intent', { paymentRequest });
 
     try {
-      const response = await axios.post(
+      const response = await apiClient.post<any>(
         `${process.env.EXPO_PUBLIC_SERVER_URL}/payment/create-payment-intent`,
         paymentRequest
       );
 
+      logger.info('Payment intent created successfully');
       dispatch({ type: 'PAYMENT_INTENT_SUCCESS', payload: response.data });
       return response.data;
     } catch (error: any) {
+      logger.error('Failed to create payment intent', { error: error.message });
       const backendMessage =
         typeof error?.response?.data === 'string'
           ? error.response.data
@@ -90,33 +93,31 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
 
 export const confirm_payment: any = (payment: any) => {
   return async (dispatch: Dispatch<any>) => {
-    await axios
-      .post(
+    try {
+      logger.debug('Confirming payment');
+      const response = await apiClient.post<any>(
         process.env.EXPO_PUBLIC_SERVER_URL + '/payment/confirm-payment',
         payment,
-      )
-      .then(async response => {
-        //this will return the status of the payment
-        console.log('confirm payment');
-        console.log(response);
-         dispatch(updateBookingSuccess(response.data));
-                    await displayLocalNotification(
-                        'Booking Successfully paid!', 
-                        `${response.data}!`
-                      );
-        dispatch({type: 'PAYMENT_INTENT_SUCCESS', payload: response.data});
-      })
-      .catch(error => {
-        dispatch(
-          addMessage({
-            id: 1,
-            text: error.response.data,
-            status: 500,
-          }),
-        );
-        setTimeout(() => {
-          dispatch(clearMessages());
-        }, 2000);
-      });
+      );
+      logger.info('Payment confirmed successfully');
+      dispatch(updateBookingSuccess(response.data));
+      await displayLocalNotification(
+        'Booking Successfully paid!', 
+        `${response.data}!`
+      );
+      dispatch({type: 'PAYMENT_INTENT_SUCCESS', payload: response.data});
+    } catch (error: any) {
+      logger.error('Failed to confirm payment', { error: error.message });
+      dispatch(
+        addMessage({
+          id: 1,
+          text: error.response.data,
+          status: 500,
+        }),
+      );
+      setTimeout(() => {
+        dispatch(clearMessages());
+      }, 2000);
+    }
   };
 };

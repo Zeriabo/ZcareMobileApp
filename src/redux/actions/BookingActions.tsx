@@ -1,6 +1,6 @@
-import axios from 'axios';
-
 import { Dispatch } from 'redux';
+import { apiClient } from '../../utils/apiClient';
+import { logger } from '../../utils/logger';
 import { displayLocalNotification, scheduleBookingReminder } from '../../utils/notifications';
 import { AppDispatch } from '../store';
 
@@ -41,10 +41,10 @@ export const deleteBookingSuccess = (bookingId: any) => ({
 export const fetchBookings = () => {
   return async (dispatch: AppDispatch) => {
     try {
-      const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
+      const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
       dispatch({ type: 'SET_BOOKINGS', payload: response.data });
     } catch (error) {
-      console.log(error);
+      logger.error('Failed to fetch bookings', { error });
     }
   };
 };
@@ -58,25 +58,25 @@ export const fetchUserBookings = (token: string) => {
         : `Bearer ${normalizedToken}`;
       const rawToken = normalizedToken.replace(/^Bearer\s+/i, '');
       const attempts = [
-        () => axios.post(`${base}/booking/user/token`, token, {
+        () => apiClient.post<any>(`${base}/booking/user/token`, token, {
           headers: { 'Content-Type': 'text/plain' },
         }),
-        () => axios.post(`${base}/booking/user`, { token }, {
+        () => apiClient.post<any>(`${base}/booking/user`, { token }, {
           headers: { 'Content-Type': 'application/json' },
         }),
-        () => axios.get(`${base}/booking/user`, {
+        () => apiClient.get<any>(`${base}/booking/user`, {
           headers: { Authorization: authHeader },
         }),
-        () => axios.get(`${base}/booking/user`, {
+        () => apiClient.get<any>(`${base}/booking/user`, {
           headers: { Authorization: rawToken },
         }),
-        () => axios.get(`${base}/booking/user`, {
+        () => apiClient.get<any>(`${base}/booking/user`, {
           headers: { token: rawToken },
         }),
-        () => axios.get(`${base}/booking/user`, {
+        () => apiClient.get<any>(`${base}/booking/user`, {
           params: { token: rawToken },
         }),
-        () => axios.get(`${base}/v1/bookings/user`, {
+        () => apiClient.get<any>(`${base}/v1/bookings/user`, {
           headers: { Authorization: authHeader },
         }),
       ];
@@ -91,7 +91,7 @@ export const fetchUserBookings = (token: string) => {
         } catch (error: any) {
           lastError = error;
           if (error?.response?.status === 400) {
-            console.error('User bookings 400 response:', error?.response?.data);
+            logger.warn('User bookings 400 response', { data: error?.response?.data });
           }
           if (![400, 404, 405].includes(error?.response?.status)) {
             throw error;
@@ -102,10 +102,10 @@ export const fetchUserBookings = (token: string) => {
       if (!response) {
         throw lastError || new Error('User bookings endpoint unavailable');
       }
-     console.log('User bookings response:', response.data);
+      logger.info('User bookings fetched successfully', { count: response.data?.length });
       dispatch({ type: 'SET_BOOKINGS', payload: response.data });
     } catch (error: any) {
-      // Error handled silently
+      logger.error('Failed to fetch user bookings', { error: error.message });
     }
   };
 };
@@ -113,26 +113,26 @@ export const fetchUserBookings = (token: string) => {
 export const fetchBooking = (bookingId: any) => {
   return async (dispatch: any) => {
     try {
-      const response = await axios.get(
+      const response = await apiClient.get<any>(
         process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
       );
       dispatch(fetchBookingSuccess(response.data));
     } catch (error) {
-      console.log(error);
+      logger.error('Failed to fetch booking', { bookingId, error });
     }
   };
 };
 
 //wrong json
 export const createBooking = (bookingInput: any) => {
-  console.log('Booking payload:', bookingInput);
+  logger.debug('Creating booking', { bookingInput });
   return async (dispatch: Dispatch) => {
     try {
-      const response = await axios.post(
+      const response = await apiClient.post<any>(
         process.env.EXPO_PUBLIC_SERVER_URL + '/booking',
         bookingInput,
       );
-      console.log('Booking API response:', response);
+      logger.info('Booking created successfully', { booking: response.data });
 
       // Dispatch a success action
       dispatch(createBookingSuccess(response.data));
@@ -152,7 +152,7 @@ export const createBooking = (bookingInput: any) => {
       // ✅ Return response data so the component can use it
       return response.data;
     } catch (error) {
-      console.error('Booking API error:', error);
+      logger.error('Failed to create booking', { error });
       throw error; // ✅ Re-throw so your component can catch it
     }
   };
@@ -164,12 +164,12 @@ export const updateBooking = (bookingId: any, booking: any) => {
       const base = process.env.EXPO_PUBLIC_SERVER_URL;
       let response: any;
       const attempts = [
-        () => axios.patch(`${base}/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
-        () => axios.patch(`${base}/booking/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
-        () => axios.put(`${base}/booking/${bookingId}`, booking),
-        () => axios.put(`${base}/v1/bookings/${bookingId}`, booking),
-        () => axios.patch(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
-        () => axios.patch(`${base}/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.patch<any>(`${base}/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.patch<any>(`${base}/booking/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.put<any>(`${base}/booking/${bookingId}`, booking),
+        () => apiClient.put<any>(`${base}/v1/bookings/${bookingId}`, booking),
+        () => apiClient.patch<any>(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.patch<any>(`${base}/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
       ];
 
       let lastError: any = null;
@@ -190,6 +190,7 @@ export const updateBooking = (bookingId: any, booking: any) => {
         throw lastError || new Error('Update booking endpoint unavailable');
       }
 
+      logger.info('Booking updated successfully', { bookingId });
       dispatch(updateBookingSuccess(response.data));
       dispatch({ type: 'UPDATE_BOOKING', payload: response.data });
             await displayLocalNotification(
@@ -198,7 +199,7 @@ export const updateBooking = (bookingId: any, booking: any) => {
               );
       return response.data;
     } catch (error) {
-      console.log(error);
+      logger.error('Failed to update booking', { bookingId, error });
       throw error;
     }
   };
@@ -207,14 +208,15 @@ export const updateBooking = (bookingId: any, booking: any) => {
 export const deleteBooking = (bookingId: any) => {
   return async (dispatch: any) => {
     try {
-      await axios.delete(
+      await apiClient.delete(
         process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
       );
+      logger.info('Booking deleted successfully', { bookingId });
       dispatch(deleteBookingSuccess(bookingId));
       dispatch({ type: 'DELETE_BOOKING', payload: bookingId });
       return true;
     } catch (error) {
-      console.log(error);
+      logger.error('Failed to delete booking', { bookingId, error });
       throw error;
     }
   };

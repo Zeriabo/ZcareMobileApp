@@ -1,5 +1,6 @@
-import axios from "axios";
 import { Dispatch } from "react";
+import { apiClient } from "../../utils/apiClient";
+import { logger } from "../../utils/logger";
 
 export const SELECT_STATION = 'SELECT_STATION';
 
@@ -10,12 +11,14 @@ interface SelectStationAction {
 
 export const selectStation = (stationId: string) => async (dispatch: Dispatch<any>) => {
   try {
-    const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_URL}/stations/${stationId}`);
+    logger.debug('Selecting station', { stationId });
+    const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/stations/${stationId}`);
+    logger.info('Station selected successfully', { stationId });
     dispatch({
       type: 'SELECT_STATION',
       payload: response.data, 
     });
   } catch (error: any) {
-    console.log("Error fetching station:", error);
+    logger.error('Failed to select station', { stationId, error: error.message });
   }
 };

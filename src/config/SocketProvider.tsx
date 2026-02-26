@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
 import { fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
+import { logger } from '../utils/logger';
 import notifee, { AndroidImportance } from '../utils/notifeeCompat';
 
 const SocketContext = createContext<Socket | null>(null);
@@ -15,7 +16,29 @@ export const SocketProvider = ({ children }: any) => {
   const socketRef = useRef<Socket | null>(null);
 
   if (!socketRef.current) {
-    socketRef.current = io((process.env.EXPO_PUBLIC_SERVER_URL || '') + ':9099', { autoConnect: false });
+    const socketPort = process.env.EXPO_PUBLIC_SOCKET_PORT || '9099';
+    const socketHost = process.env.EXPO_PUBLIC_SOCKET_HOST || process.env.EXPO_PUBLIC_SERVER_URL || 'localhost';
+    const socketUrl = `${socketHost}:${socketPort}`;
+
+    logger.info('Initializing socket connection', { socketUrl });
+
+    socketRef.current = io(socketUrl, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+    });
+
+    // Error handling
+    socketRef.current.on('connect_error', (error: any) => {
+      logger.error('Socket connection error', error);
+    });
+
+    socketRef.current.on('disconnect', (reason: string) => {
+      logger.info('Socket disconnected', { reason });
+    });
   }
   const socket = socketRef.current;
 
