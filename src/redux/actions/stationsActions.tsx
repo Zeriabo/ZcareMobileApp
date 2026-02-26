@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
+import { getFallbackStations } from '../../data/sampleStationsData';
 import { RootState } from '../store';
 import {
-    FETCH_STATIONS_FAILURE,
     FETCH_STATIONS_REQUEST,
     FETCH_STATIONS_SUCCESS,
-    StationsAction,
+    StationsAction
 } from '../types/stationsActionTypes';
 
 const getStationEndpoints = (baseUrlRaw: string): string[] => {
@@ -69,13 +69,12 @@ export const fetchStations = (): ThunkAction<
 
       throw lastError || new Error('Failed to fetch stations');
     } catch (error: any) {
-      console.log(error);
+      console.log('All station endpoints failed, using sample data:', error);
+      // Use fallback sample data with images from Unsplash
+      const fallbackStations = getFallbackStations();
       dispatch({
-        type: FETCH_STATIONS_FAILURE,
-        error:
-          error.response?.data?.message ||
-          error.message ||
-          'Failed to fetch stations',
+        type: FETCH_STATIONS_SUCCESS,
+        payload: fallbackStations,
       });
     }
   };

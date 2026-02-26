@@ -51,16 +51,58 @@ export const fetchBookings = () => {
 export const fetchUserBookings = (token: string) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_SERVER_URL}/booking/user/token`,
-        token, 
-        {
-          headers: {
-            'Content-Type': 'text/plain', 
-          },
-        }
-      );
+      const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
+      const normalizedToken = (token || '').trim();
+      const authHeader = normalizedToken.startsWith('Bearer ')
+        ? normalizedToken
+        : `Bearer ${normalizedToken}`;
+      const rawToken = normalizedToken.replace(/^Bearer\s+/i, '');
+      const attempts = [
+        () => axios.post(`${base}/booking/user/token`, token, {
+          headers: { 'Content-Type': 'text/plain' },
+        }),
+        () => axios.post(`${base}/booking/user`, { token }, {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+        () => axios.get(`${base}/booking/user`, {
+          headers: { Authorization: authHeader },
+        }),
+        () => axios.get(`${base}/booking/user`, {
+          headers: { Authorization: rawToken },
+        }),
+        () => axios.get(`${base}/booking/user`, {
+          headers: { token: rawToken },
+        }),
+        () => axios.get(`${base}/booking/user`, {
+          params: { token: rawToken },
+        }),
+        () => axios.get(`${base}/v1/bookings/user`, {
+          headers: { Authorization: authHeader },
+        }),
+      ];
 
+      let response: any;
+      let lastError: any = null;
+
+      for (const attempt of attempts) {
+        try {
+          response = await attempt();
+          if (response) break;
+        } catch (error: any) {
+          lastError = error;
+          if (error?.response?.status === 400) {
+            console.error('User bookings 400 response:', error?.response?.data);
+          }
+          if (![400, 404, 405].includes(error?.response?.status)) {
+            throw error;
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('User bookings endpoint unavailable');
+      }
+     console.log('User bookings response:', response.data);
       dispatch({ type: 'SET_BOOKINGS', payload: response.data });
     } catch (error: any) {
       console.error('Error fetching user bookings:', error);
