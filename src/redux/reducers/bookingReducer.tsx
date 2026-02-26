@@ -16,7 +16,6 @@ const initialState: BookingState = {
 
 // Reducer function
 const bookingReducer = (state = initialState, action: any): BookingState => {
-      console.log(action)
   switch (action.type) {
 
     case 'FETCH_BOOKINGS_SUCCESS':

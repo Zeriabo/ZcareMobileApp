@@ -105,7 +105,7 @@ export const fetchUserBookings = (token: string) => {
      console.log('User bookings response:', response.data);
       dispatch({ type: 'SET_BOOKINGS', payload: response.data });
     } catch (error: any) {
-      console.error('Error fetching user bookings:', error);
+      // Error handled silently
     }
   };
 };

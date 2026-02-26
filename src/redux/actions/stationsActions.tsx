@@ -57,13 +57,11 @@ export const fetchStations = (): ThunkAction<
           return;
         } catch (error: any) {
           lastError = error;
-          console.log('Station endpoint failed:', endpoint, error?.message);
         }
       }
 
       throw lastError || new Error('Failed to fetch stations');
     } catch (error: any) {
-      console.log('Failed to fetch stations:', error?.message);
       dispatch({
         type: FETCH_STATIONS_FAILURE,
         error: error?.message || 'Failed to fetch stations',

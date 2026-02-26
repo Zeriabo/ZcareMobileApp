@@ -8,12 +8,9 @@ import { RootState } from '../redux/types/rootState';
 const MessageDisplay = () => {
   const messages: Message[] = useSelector((state: RootState) => state.messages);
 
-  console.log('messages', messages);
   if (!messages || messages.length === 0) return null;
 
   const message = messages[messages.length - 1];
-  console.log('this is the message:', message);
-  console.log('Last message:', message);
   return (
     <View
       style={[

@@ -1,12 +1,12 @@
+import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { useDispatch, useSelector } from 'react-redux';
+import markerIcon from '../assets/images/wash-washing.png';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
-import MapView, { Marker, Region } from 'react-native-maps';
-import * as Location from 'expo-location';
-import markerIcon from '../assets/images/wash-washing.png';
 
 const Main: React.FC<any> = ({ navigation }) => {
   const dispatch = useDispatch<any>();
@@ -51,7 +51,7 @@ const Main: React.FC<any> = ({ navigation }) => {
         longitudeDelta: 0.01,
       });
     } catch (error) {
-      console.log('Location error:', error);
+      // Location error handled
     } finally {
       setLoading(false);
     }

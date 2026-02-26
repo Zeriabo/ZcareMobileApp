@@ -62,7 +62,6 @@ export const fetchPrograms = (stationId: string): ThunkAction<
 
       throw lastError || new Error('Failed to fetch programs');
     } catch (error: any) {
-      console.log('Failed to fetch programs:', error?.message);
       dispatch({
         type: FETCH_PROGRAMS_FAILURE,
         error: error?.message || 'Failed to fetch programs',

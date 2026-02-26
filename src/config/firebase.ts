@@ -10,11 +10,8 @@ const firebaseConfig = {
   appId: '1:932522221050:ios:4c2639c1754e65687dd843',
 };
 let app: ReactNativeFirebase.FirebaseApp;
-// 1. Initialize the app if it doesn't exist
 if (getApps().length === 0) {
-  console.log("intializing")
  app =  initializeApp(firebaseConfig) as unknown as ReactNativeFirebase.FirebaseApp;
- console.log(app)
 }else {
     app = getApp();
 }

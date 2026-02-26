@@ -12,12 +12,12 @@ import CheckoutForm from './src/components/CheckoutForm';
 import MessageDisplay from './src/components/MessageDisplay';
 import './src/config/firebase';
 import store from './src/redux/store';
+import ActiveWashScreen from './src/screens/ActiveWashScreen';
+import AIAssistantScreen from './src/screens/AIAssistantScreen';
 import BuywashScreen from './src/screens/BuywashScreen';
 import RegisterCarScreen from './src/screens/RegisterCarScreen';
-import AIAssistantScreen from './src/screens/AIAssistantScreen';
 import RepairShopScreen from './src/screens/RepairShopScreen';
 import StationPage from './src/screens/StationPage';
-import ActiveWashScreen from './src/screens/ActiveWashScreen';
 // Redux actions and helpers
 import { getMessaging, onMessage } from '@react-native-firebase/messaging';
 import { TamaguiProvider, Theme } from 'tamagui';
@@ -34,6 +34,7 @@ import { tamaguiConfig } from './tamagui.config';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const STRIPE_PUBLISHABLE_KEY =
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
   'pk_test_51NInIUC7hkCZnQICpeKcU6piJANDfXyV3wcXXFPP39hu4KlZRMj4AvuHPiSv5Kv30KGK79zFRMRfGR2rtw0XQJEV00IYaSztHB';
 
 function App() {

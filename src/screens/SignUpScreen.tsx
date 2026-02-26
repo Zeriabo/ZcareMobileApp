@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ImageBackground } from 'react-native';
-import { TextInput, Button, Text, Snackbar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { ImageBackground, StyleSheet, View } from 'react-native';
+import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import { signUp } from '../redux/actions/AuthActions';
 
@@ -30,22 +30,6 @@ const SignUpScreen: React.FC = () => {
     };
 
     dispatch(signUp(user));
-
-    // Example error handling (uncomment when API integrated)
-    /*
-    axios.post(Config.REACT_APP_SERVER_URL + '/users/register', user)
-      .then((response) => {
-        navigation.navigate('Home');
-      })
-      .catch((error) => {
-        dispatch(addMessage({ id: 1, text: error.response.data }));
-        setSnackbarVisible(true);
-        setTimeout(() => {
-          dispatch(clearMessages());
-          setSnackbarVisible(false);
-        }, 2000);
-      });
-    */
   };
 
   return (
