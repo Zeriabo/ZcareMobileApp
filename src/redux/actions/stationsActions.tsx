@@ -1,11 +1,12 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
-import { getFallbackStations } from '../../data/sampleStationsData';
+import { enrichStationsWithDemoImages } from '../../data/sampleStationsData';
 import { RootState } from '../store';
 import {
     FETCH_STATIONS_REQUEST,
     FETCH_STATIONS_SUCCESS,
+    FETCH_STATIONS_FAILURE,
     StationsAction
 } from '../types/stationsActionTypes';
 
@@ -40,41 +41,32 @@ export const fetchStations = (): ThunkAction<
 
     try {
       const serverBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
-      console.log('SERVER URL:', serverBase);
-
       const stationEndpoints = getStationEndpoints(serverBase);
       let lastError: any = null;
 
       for (const endpoint of stationEndpoints) {
         try {
           const response = await axios.get(endpoint, { timeout: 10000 });
+          const stations = response.data || [];
+          // Enrich with demo images if backend data is missing pictures
+          const enrichedStations = enrichStationsWithDemoImages(stations);
           dispatch({
             type: FETCH_STATIONS_SUCCESS,
-            payload: response.data,
+            payload: enrichedStations,
           });
           return;
         } catch (error: any) {
           lastError = error;
-          const details = {
-            message: error?.message,
-            code: error?.code,
-            status: error?.response?.status,
-            url: error?.config?.url,
-            response: error?.response?.data,
-            toJSON: typeof error?.toJSON === 'function' ? error.toJSON() : undefined,
-          };
-          console.log('Station endpoint failed:', endpoint, JSON.stringify(details));
+          console.log('Station endpoint failed:', endpoint, error?.message);
         }
       }
 
       throw lastError || new Error('Failed to fetch stations');
     } catch (error: any) {
-      console.log('All station endpoints failed, using sample data:', error);
-      // Use fallback sample data with images from Unsplash
-      const fallbackStations = getFallbackStations();
+      console.log('Failed to fetch stations:', error?.message);
       dispatch({
-        type: FETCH_STATIONS_SUCCESS,
-        payload: fallbackStations,
+        type: FETCH_STATIONS_FAILURE,
+        error: error?.message || 'Failed to fetch stations',
       });
     }
   };

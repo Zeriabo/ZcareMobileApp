@@ -1,11 +1,12 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
 import { ThunkAction } from 'redux-thunk';
-import { SAMPLE_PROGRAMS } from '../../data/sampleStationsData';
+import { enrichProgramsWithDemoImages } from '../../data/sampleStationsData';
 import { RootState } from '../store';
 import {
   FETCH_PROGRAMS_REQUEST,
   FETCH_PROGRAMS_SUCCESS,
+  FETCH_PROGRAMS_FAILURE,
   ProgramsAction
 } from '../types/stationsActionTypes';
 
@@ -27,7 +28,7 @@ const getProgramEndpoints = (baseUrlRaw: string, stationId: string): string[] =>
 };
 
 
-// Fetch stations action using REST API
+// Fetch programs action using REST API
 export const fetchPrograms = (stationId: string): ThunkAction<
   Promise<void>,
   RootState,
@@ -35,8 +36,8 @@ export const fetchPrograms = (stationId: string): ThunkAction<
   ProgramsAction
 > => {
   return async (dispatch: Dispatch<ProgramsAction>) => {
-    dispatch({ type:  FETCH_PROGRAMS_REQUEST });
-    console.log('fetching programs');
+    dispatch({ type: FETCH_PROGRAMS_REQUEST });
+    
     try {
       const serverBase = process.env.EXPO_PUBLIC_SERVER_URL || '';
       const programEndpoints = getProgramEndpoints(serverBase, stationId);
@@ -45,26 +46,26 @@ export const fetchPrograms = (stationId: string): ThunkAction<
       for (const endpoint of programEndpoints) {
         try {
           const response = await axios.get(endpoint, { timeout: 10000 });
-          const programs = response.data;
-          console.log(programs);
+          const programs = response.data || [];
+          // Enrich with demo images if backend data is missing pictures
+          const enrichedPrograms = enrichProgramsWithDemoImages(programs);
           dispatch({
             type: FETCH_PROGRAMS_SUCCESS,
-            payload: programs,
+            payload: enrichedPrograms,
           });
           return;
         } catch (error: any) {
           lastError = error;
-          console.log('Program endpoint failed:', endpoint, error?.message || error);
+          console.log('Program endpoint failed:', endpoint, error?.message);
         }
       }
 
       throw lastError || new Error('Failed to fetch programs');
     } catch (error: any) {
-      console.log('Program fetch failed, using sample programs with images:', error?.message);
-      // Use fallback sample programs with images from Unsplash
+      console.log('Failed to fetch programs:', error?.message);
       dispatch({
-        type: FETCH_PROGRAMS_SUCCESS,
-        payload: SAMPLE_PROGRAMS,
+        type: FETCH_PROGRAMS_FAILURE,
+        error: error?.message || 'Failed to fetch programs',
       });
     }
   };

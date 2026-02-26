@@ -117,8 +117,33 @@ export const getSampleStationsWithPrograms = (): Station[] => {
 };
 
 /**
- * Use this to provide fallback data when API fails
+ * Merge backend stations with demo images for missing media
+ * If a station doesn't have pictures, use demo images
  */
-export const getFallbackStations = (): Station[] => {
-  return getSampleStationsWithPrograms();
+export const enrichStationsWithDemoImages = (stations: any[]): Station[] => {
+  const demoImages = [STATION_IMAGES.hero1, STATION_IMAGES.hero2, STATION_IMAGES.hero3];
+  const demoLogos = [STATION_IMAGES.logo1, STATION_IMAGES.logo2, STATION_IMAGES.logo3];
+
+  return stations.map((station, index) => ({
+    ...station,
+    media: {
+      picture: station.media?.picture || demoImages[index % demoImages.length],
+      logo: station.media?.logo || demoLogos[index % demoLogos.length],
+    },
+  }));
+};
+
+/**
+ * Merge backend programs with demo images for missing media
+ * If a program doesn't have a picture, use a demo image
+ */
+export const enrichProgramsWithDemoImages = (programs: any[]): CarWashingProgram[] => {
+  const demoImages = Object.values(PROGRAM_IMAGES);
+
+  return programs.map((program, index) => ({
+    ...program,
+    media: {
+      picture: program.media?.picture || demoImages[index % demoImages.length],
+    },
+  }));
 };
