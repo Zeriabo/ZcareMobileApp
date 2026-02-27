@@ -119,6 +119,7 @@ export const getSampleStationsWithPrograms = (): Station[] => {
 /**
  * Merge backend stations with demo images for missing media
  * If a station doesn't have pictures, use demo images
+ * TEMPORARY: Always use demo images since backend media files don't exist yet
  */
 export const enrichStationsWithDemoImages = (stations: any[]): Station[] => {
   const demoImages = [STATION_IMAGES.hero1, STATION_IMAGES.hero2, STATION_IMAGES.hero3];
@@ -127,8 +128,12 @@ export const enrichStationsWithDemoImages = (stations: any[]): Station[] => {
   return stations.map((station, index) => ({
     ...station,
     media: {
-      picture: station.media?.picture || demoImages[index % demoImages.length],
-      logo: station.media?.logo || demoLogos[index % demoLogos.length],
+      // Always use demo images until backend has actual media files uploaded
+      picture: demoImages[index % demoImages.length],
+      logo: demoLogos[index % demoLogos.length],
+      // Uncomment lines below and remove lines above when backend media files exist:
+      // picture: station.media?.picture || demoImages[index % demoImages.length],
+      // logo: station.media?.logo || demoLogos[index % demoLogos.length],
     },
   }));
 };
@@ -136,6 +141,7 @@ export const enrichStationsWithDemoImages = (stations: any[]): Station[] => {
 /**
  * Merge backend programs with demo images for missing media
  * If a program doesn't have a picture, use a demo image
+ * TEMPORARY: Always use demo images since backend media files don't exist yet
  */
 export const enrichProgramsWithDemoImages = (programs: any[]): CarWashingProgram[] => {
   const demoImages = Object.values(PROGRAM_IMAGES);
@@ -143,7 +149,10 @@ export const enrichProgramsWithDemoImages = (programs: any[]): CarWashingProgram
   return programs.map((program, index) => ({
     ...program,
     media: {
-      picture: program.media?.picture || demoImages[index % demoImages.length],
+      // Always use demo images until backend has actual media files uploaded
+      picture: demoImages[index % demoImages.length],
+      // Uncomment line below and remove line above when backend media files exist:
+      // picture: program.media?.picture || demoImages[index % demoImages.length],
     },
   }));
 };

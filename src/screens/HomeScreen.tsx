@@ -1,3 +1,4 @@
+import axios from 'axios';
 import * as Location from 'expo-location';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import axios from 'axios';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useDispatch, useSelector } from 'react-redux';
 import markerIcon from '../assets/images/wash-washing.png';
@@ -446,6 +446,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           ))}
       </MapView>
 
+      {/* Floating Waterless Wash Button */}
+      {serviceType === 'wash' && (
+        <Pressable
+          style={styles.waterlessFAB}
+          onPress={() => {
+            // Use first available station for waterless booking, or create a generic one
+            const defaultStation = normalizedStations[0] || null;
+            const defaultProgram = {
+              id: 999,
+              name: 'Waterless Mobile Wash',
+              price: 25,
+              programType: 'waterless',
+              description: 'Eco-friendly waterless wash delivered to your location'
+            };
+            navigation.navigate('Buywash', { selectedProgram: defaultProgram });
+          }}
+        >
+          <View style={styles.waterlessFABIcon}>
+            <Text style={styles.waterlessFABEmoji}>💧</Text>
+          </View>
+          <Text style={styles.waterlessFABText}>Waterless Wash</Text>
+        </Pressable>
+      )}
+
       <View style={[styles.bottomSheet, sheetExpanded && styles.bottomSheetExpanded]}>
         <Pressable onPress={() => setSheetExpanded(prev => !prev)} style={styles.sheetHandleWrap}>
           <View style={styles.sheetHandle} />
@@ -838,6 +862,40 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 12,
     fontWeight: '700',
+  },
+  waterlessFAB: {
+    position: 'absolute',
+    bottom: 170,
+    right: 16,
+    backgroundColor: '#10B981',
+    borderRadius: 28,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    zIndex: 25,
+  },
+  waterlessFABIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waterlessFABEmoji: {
+    fontSize: 20,
+  },
+  waterlessFABText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });
 

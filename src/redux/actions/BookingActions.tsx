@@ -42,7 +42,13 @@ export const fetchBookings = () => {
   return async (dispatch: AppDispatch) => {
     try {
       const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
-      dispatch({ type: 'SET_BOOKINGS', payload: response.data });
+      
+      // apiClient returns data directly
+      const bookingsData = Array.isArray(response) 
+        ? response 
+        : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
+      
+      dispatch({ type: 'SET_BOOKINGS', payload: bookingsData });
     } catch (error) {
       logger.error('Failed to fetch bookings', { error });
     }
@@ -102,8 +108,14 @@ export const fetchUserBookings = (token: string) => {
       if (!response) {
         throw lastError || new Error('User bookings endpoint unavailable');
       }
-      logger.info('User bookings fetched successfully', { count: response.data?.length });
-      dispatch({ type: 'SET_BOOKINGS', payload: response.data });
+      
+      // apiClient returns data directly
+      const bookingsData = Array.isArray(response) 
+        ? response 
+        : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
+      
+      logger.info('User bookings fetched successfully', { count: bookingsData.length });
+      dispatch({ type: 'SET_BOOKINGS', payload: bookingsData });
     } catch (error: any) {
       logger.error('Failed to fetch user bookings', { error: error.message });
     }
@@ -116,7 +128,7 @@ export const fetchBooking = (bookingId: any) => {
       const response = await apiClient.get<any>(
         process.env.EXPO_PUBLIC_SERVER_URL+ `/booking/${bookingId}`,
       );
-      dispatch(fetchBookingSuccess(response.data));
+      dispatch(fetchBookingSuccess(response));
     } catch (error) {
       logger.error('Failed to fetch booking', { bookingId, error });
     }
@@ -132,10 +144,10 @@ export const createBooking = (bookingInput: any) => {
         process.env.EXPO_PUBLIC_SERVER_URL + '/booking',
         bookingInput,
       );
-      logger.info('Booking created successfully', { booking: response.data });
+      logger.info('Booking created successfully', { booking: response });
 
       // Dispatch a success action
-      dispatch(createBookingSuccess(response.data));
+      dispatch(createBookingSuccess(response));
       await displayLocalNotification(
                 'Booking Successful', 
                 `${(!response.data.executed)?'Valid':'Not Valid'}`

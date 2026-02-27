@@ -1,13 +1,15 @@
+import Icon from '@react-native-vector-icons/ionicons';
+import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Button, HelperText, RadioButton, TextInput } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,7 +19,7 @@ import { resolveMediaUrl } from '../utils/media';
 import { goBackOrHome } from '../utils/navigation';
 import { Validators } from '../utils/validators';
 
-type WashType = 'regular' | 'waterless' | 'delivery';
+type WashType = 'regular' | 'waterless';
 
 type Props = {
   route: any;
@@ -38,12 +40,12 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [deliveryLatitude, setDeliveryLatitude] = useState('');
-  const [deliveryLongitude, setDeliveryLongitude] = useState('');
+  const [deliveryLatitude, setDeliveryLatitude] = useState<number | null>(null);
+  const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(null);
   const [addressError, setAddressError] = useState('');
   const [phoneError, setPhoneError] = useState('');
-  const [latitudeError, setLatitudeError] = useState('');
-  const [longitudeError, setLongitudeError] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   useEffect(() => {
     setProgram({ ...selectedProgram });
@@ -74,35 +76,75 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
       setPhoneError('');
     }
     
-    if (!Validators.required(deliveryLatitude)) {
-      setLatitudeError('Latitude is required');
-      isValid = false;
-    } else if (!Validators.number(deliveryLatitude)) {
-      setLatitudeError('Latitude must be a valid number');
+    if (!deliveryLatitude || !deliveryLongitude) {
+      setLocationError('Please select delivery location on map');
       isValid = false;
     } else {
-      setLatitudeError('');
-    }
-
-    if (!Validators.required(deliveryLongitude)) {
-      setLongitudeError('Longitude is required');
-      isValid = false;
-    } else if (!Validators.number(deliveryLongitude)) {
-      setLongitudeError('Longitude must be a valid number');
-      isValid = false;
-    } else {
-      setLongitudeError('');
+      setLocationError('');
     }
 
     return isValid;
   };
 
+  const getCurrentLocation = async () => {
+    setLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Location permission is required to auto-fill your current location');
+        setLoadingLocation(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setDeliveryLatitude(location.coords.latitude);
+      setDeliveryLongitude(location.coords.longitude);
+      setLocationError('');
+      
+      // Reverse geocode to get address
+      const addresses = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      
+      if (addresses[0]) {
+        const addr = addresses[0];
+        const formattedAddress = [
+          addr.street,
+          addr.city,
+          addr.postalCode,
+          addr.country
+        ].filter(Boolean).join(', ');
+        setDeliveryAddress(formattedAddress);
+        setAddressError('');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not get your current location');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const openMapPicker = () => {
+    navigation.navigate('MapPicker', {
+      onLocationSelected: (latitude: number, longitude: number, address: string) => {
+        setDeliveryLatitude(latitude);
+        setDeliveryLongitude(longitude);
+        if (address) {
+          setDeliveryAddress(address);
+          setAddressError('');
+        }
+        setLocationError('');
+      },
+      initialLatitude: deliveryLatitude,
+      initialLongitude: deliveryLongitude,
+    });
+  };
+
   const getWashTypePrice = (): number => {
     const basePrice = Number(program.price || 0);
     if (washType === 'waterless') {
-      return basePrice * 1.15; // 15% premium for waterless
-    } else if (washType === 'delivery') {
-      return basePrice + 10; // €10 delivery fee
+      return basePrice * 1.20; // 20% premium for mobile waterless service
     }
     return basePrice;
   };
@@ -223,24 +265,8 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={() => setWashType('waterless')}
             />
             <View style={styles.washTypeInfo}>
-              <Text style={styles.washTypeName}>Waterless Wash</Text>
-              <Text style={styles.washTypeDesc}>Eco-friendly mobile service</Text>
-            </View>
-            <Text style={styles.washTypePrice}>€{getWashTypePrice().toFixed(2)}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.washTypeOption, washType === 'delivery' && styles.washTypeSelected]}
-            onPress={() => setWashType('delivery')}
-          >
-            <RadioButton
-              value="delivery"
-              status={washType === 'delivery' ? 'checked' : 'unchecked'}
-              onPress={() => setWashType('delivery')}
-            />
-            <View style={styles.washTypeInfo}>
-              <Text style={styles.washTypeName}>Delivery Wash</Text>
-              <Text style={styles.washTypeDesc}>We come to you</Text>
+              <Text style={styles.washTypeName}>Waterless Mobile Wash 🚗</Text>
+              <Text style={styles.washTypeDesc}>Eco-friendly • We come to your location</Text>
             </View>
             <Text style={styles.washTypePrice}>€{getWashTypePrice().toFixed(2)}</Text>
           </TouchableOpacity>
@@ -271,43 +297,51 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
               {addressError}
             </HelperText>
 
-            <TextInput
-              mode="outlined"
-              label="Latitude *"
-              value={deliveryLatitude}
-              onChangeText={(text) => {
-                setDeliveryLatitude(text);
-                if (text && Validators.number(text)) {
-                  setLatitudeError('');
-                }
-              }}
-              error={!!latitudeError}
-              placeholder="51.5237"
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-            <HelperText type="error" visible={!!latitudeError}>
-              {latitudeError}
-            </HelperText>
-
-            <TextInput
-              mode="outlined"
-              label="Longitude *"
-              value={deliveryLongitude}
-              onChangeText={(text) => {
-                setDeliveryLongitude(text);
-                if (text && Validators.number(text)) {
-                  setLongitudeError('');
-                }
-              }}
-              error={!!longitudeError}
-              placeholder="-0.1585"
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-            <HelperText type="error" visible={!!longitudeError}>
-              {longitudeError}
-            </HelperText>
+            {/* Location Selection */}
+            <View style={styles.locationSection}>
+              <Text style={styles.locationLabel}>Delivery Location *</Text>
+              
+              {deliveryLatitude && deliveryLongitude ? (
+                <View style={styles.selectedLocationCard}>
+                  <Icon name="location" size={20} color="#10B981" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.selectedLocationText}>Location Selected</Text>
+                    <Text style={styles.selectedLocationCoords}>
+                      {deliveryLatitude.toFixed(4)}, {deliveryLongitude.toFixed(4)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={openMapPicker} style={styles.changeLocationBtn}>
+                    <Text style={styles.changeLocationText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.locationButtonsRow}>
+                  <TouchableOpacity 
+                    onPress={getCurrentLocation} 
+                    style={[styles.locationButton, styles.currentLocationBtn]}
+                    disabled={loadingLocation}
+                  >
+                    {loadingLocation ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Icon name="navigate" size={18} color="#fff" />
+                        <Text style={styles.locationButtonText}>Use Current</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity onPress={openMapPicker} style={[styles.locationButton, styles.mapPickerBtn]}>
+                    <Icon name="map" size={18} color="#fff" />
+                    <Text style={styles.locationButtonText}>Pick on Map</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              <HelperText type="error" visible={!!locationError}>
+                {locationError}
+              </HelperText>
+            </View>
 
             <TextInput
               mode="outlined"
@@ -461,6 +495,72 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 4,
     backgroundColor: '#fff',
+  },
+  
+  // Location selection styles
+  locationSection: {
+    marginBottom: 16,
+  },
+  locationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  locationButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  locationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  currentLocationBtn: {
+    backgroundColor: '#10B981',
+  },
+  mapPickerBtn: {
+    backgroundColor: '#007AFF',
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectedLocationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    gap: 10,
+  },
+  selectedLocationText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  selectedLocationCoords: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+  },
+  changeLocationBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+  },
+  changeLocationText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '600',
   },
   
   // Price container styles

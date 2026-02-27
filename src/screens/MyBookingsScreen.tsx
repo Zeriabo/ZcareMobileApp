@@ -183,11 +183,6 @@ const MyBookingsScreen: React.FC = () => {
         <View style={styles.detailRow}>
           <Text style={styles.label}>Status</Text>
           <Text style={[styles.value, { color: statusColor }]}>{statusLabel}</Text>
-            flexShrink: 1,
-          },
-          multiLine: {
-            flexWrap: 'wrap',
-            maxWidth: '70%',
         </View>
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, styles.actionDanger]} onPress={handleCancel} disabled={processingId === item.id}>
@@ -211,6 +206,21 @@ const MyBookingsScreen: React.FC = () => {
             onPress={() => navigation.navigate('ActiveWash', { bookingId: Number(item.id) })}
           >
             <Text style={styles.actionText}>Track Live Wash</Text>
+          </TouchableOpacity>
+        )}
+        {(item.washType === 'waterless' || item.washType === 'delivery') && 
+         item.deliveryLatitude && 
+         item.deliveryLongitude && 
+         !item.executed && (
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: '#10B981', marginTop: 8 }]}
+            onPress={() => navigation.navigate('DeliveryTracking', { 
+              bookingId: Number(item.id),
+              deliveryLatitude: item.deliveryLatitude,
+              deliveryLongitude: item.deliveryLongitude,
+            })}
+          >
+            <Text style={styles.actionText}>🚗 Track Delivery</Text>
           </TouchableOpacity>
         )}
       </View>

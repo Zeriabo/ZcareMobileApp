@@ -16,7 +16,7 @@ export const selectStation = (stationId: string) => async (dispatch: Dispatch<an
     logger.info('Station selected successfully', { stationId });
     dispatch({
       type: 'SELECT_STATION',
-      payload: response.data, 
+      payload: response, 
     });
   } catch (error: any) {
     logger.error('Failed to select station', { stationId, error: error.message });

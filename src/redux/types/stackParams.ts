@@ -1,5 +1,5 @@
-import { CarWashingProgram, Station } from './stationsActionTypes';
 import { RepairShop } from '../../types/repair';
+import { CarWashingProgram, Station } from './stationsActionTypes';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -23,4 +23,14 @@ export type RootStackParamList = {
   RepairShop: { shop: RepairShop };
   AIAssistant: undefined;
   ActiveWash: { bookingId: number };
+  MapPicker: {
+    onLocationSelected: (latitude: number, longitude: number, address: string) => void;
+    initialLatitude?: number | null;
+    initialLongitude?: number | null;
+  };
+  DeliveryTracking: {
+    bookingId: number;
+    deliveryLatitude: number;
+    deliveryLongitude: number;
+  };
 };

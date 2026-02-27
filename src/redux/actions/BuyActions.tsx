@@ -20,7 +20,7 @@ export const checkout = (program: any) => {
         program
       );
       logger.info('Checkout successful');
-      dispatch({type: 'CHECKOUT_SUCCESS', payload: response.data});
+      dispatch({type: 'CHECKOUT_SUCCESS', payload: response});
     } catch (error: any) {
       logger.error('Checkout failed', { error: error.message });
       dispatch(
@@ -69,8 +69,8 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
       );
 
       logger.info('Payment intent created successfully');
-      dispatch({ type: 'PAYMENT_INTENT_SUCCESS', payload: response.data });
-      return response.data;
+      dispatch({ type: 'PAYMENT_INTENT_SUCCESS', payload: response });
+      return response;
     } catch (error: any) {
       logger.error('Failed to create payment intent', { error: error.message });
       const backendMessage =
@@ -100,12 +100,12 @@ export const confirm_payment: any = (payment: any) => {
         payment,
       );
       logger.info('Payment confirmed successfully');
-      dispatch(updateBookingSuccess(response.data));
+      dispatch(updateBookingSuccess(response));
       await displayLocalNotification(
         'Booking Successfully paid!', 
-        `${response.data}!`
+        `${response}!`
       );
-      dispatch({type: 'PAYMENT_INTENT_SUCCESS', payload: response.data});
+      dispatch({type: 'PAYMENT_INTENT_SUCCESS', payload: response});
     } catch (error: any) {
       logger.error('Failed to confirm payment', { error: error.message });
       dispatch(

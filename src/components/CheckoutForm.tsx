@@ -3,18 +3,18 @@ import { CardForm, useStripe } from '@stripe/stripe-react-native';
 import axios from 'axios';
 import React, { useLayoutEffect, useState } from 'react';
 import {
-  ActionSheetIOS,
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActionSheetIOS,
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -425,42 +425,23 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           }
         } else {
           const washType = route.params?.washType || 'regular';
-          const isDeliveryType = washType !== 'regular';
-
-          if (isDeliveryType) {
-            const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
-            const deliveryAddress = route.params?.deliveryAddress;
-            const deliveryLatitude = Number(route.params?.deliveryLatitude);
-            const deliveryLongitude = Number(route.params?.deliveryLongitude);
-            if (!deliveryAddress || !Number.isFinite(deliveryLatitude) || !Number.isFinite(deliveryLongitude)) {
-              throw new Error('Missing delivery location details.');
-            }
-            const scheduledTime = selectedDate.toISOString().slice(0, 19);
-            const deliveryPayload = {
-              token: user.token,
-              carId: selectedCar,
-              scheduledTime,
-              deliveryAddress,
-              deliveryLatitude,
-              deliveryLongitude,
-            };
-            bookingResponse = (await axios.post(`${base}/v1/bookings/waterless-delivery`, deliveryPayload)).data;
-          } else {
-            const bookingPayload = {
-              carId: selectedCar,
-              userId: user.id,
-              stationId,
-              washingProgramId: route.params?.program?.id,
-              scheduledTime: selectedDate.toISOString(),
-              token: user.token,
-              executed: false,
-              washType,
-              deliveryAddress: route.params?.deliveryAddress,
-              deliveryPhone: route.params?.deliveryPhone,
-              deliveryNotes: route.params?.deliveryNotes,
-            };
-            bookingResponse = await dispatch(createBooking(bookingPayload));
-          }
+          
+          const bookingPayload = {
+            carId: selectedCar,
+            userId: user.id,
+            stationId,
+            washingProgramId: route.params?.program?.id,
+            scheduledTime: selectedDate.toISOString(),
+            token: user.token,
+            executed: false,
+            washType,
+            deliveryAddress: route.params?.deliveryAddress,
+            deliveryPhone: route.params?.deliveryPhone,
+            deliveryNotes: route.params?.deliveryNotes,
+            deliveryLatitude: route.params?.deliveryLatitude,
+            deliveryLongitude: route.params?.deliveryLongitude,
+          };
+          bookingResponse = await dispatch(createBooking(bookingPayload));
         }
 
         const qrCode = bookingResponse?.qrCode || bookingResponse?.qr_code;

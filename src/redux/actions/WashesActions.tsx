@@ -21,8 +21,13 @@ export const fetchWashesBooked = (
       // Fallback implementation using REST bookings endpoint.
       logger.debug('Fetching booked washes', { carId });
       const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/booking`);
-      const washes = Array.isArray(response.data) ? response.data : [];
-      const carWashes = washes.filter((wash: any) => Number(wash?.car?.carId) === Number(carId));
+      
+      // apiClient returns data directly
+      const washesData = Array.isArray(response) 
+        ? response 
+        : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
+      
+      const carWashes = washesData.filter((wash: any) => Number(wash?.car?.carId) === Number(carId));
 
       logger.info('Washes fetched successfully', { count: carWashes.length, carId });
       dispatch({

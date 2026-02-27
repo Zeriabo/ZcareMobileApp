@@ -15,17 +15,7 @@ const getProgramEndpoints = (baseUrlRaw: string, stationId: string): string[] =>
   const baseUrl = (baseUrlRaw || '').trim().replace(/\/+$/, '');
   if (!baseUrl) return [];
 
-  const endpoints = [`${baseUrl}/programs/station/${stationId}`];
-
-  if (baseUrl.includes(':8080')) {
-    endpoints.push(`${baseUrl.replace(':8080', ':8090')}/v1/programs/station/${stationId}`);
-  }
-
-  if (!baseUrl.includes(':8090')) {
-    endpoints.push(`${baseUrl}/v1/programs/station/${stationId}`);
-  }
-
-  return Array.from(new Set(endpoints));
+  return [`${baseUrl}/programs/station/${stationId}`];
 };
 
 
@@ -48,9 +38,15 @@ export const fetchPrograms = (stationId: string): ThunkAction<
         try {
           logger.debug('Fetching programs', { endpoint, stationId });
           const response = await apiClient.get<any>(endpoint, { timeout: 10000 });
-          const programs = response.data || [];
-          // Enrich with demo images if backend data is missing pictures
-          const enrichedPrograms = enrichProgramsWithDemoImages(programs);
+          
+          // apiClient returns data directly, not wrapped in response.data
+          const programsData = Array.isArray(response) 
+            ? response 
+            : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
+          
+          // Enrich with demo images (currently using demo images as fallback since backend files don't exist)
+          const enrichedPrograms = enrichProgramsWithDemoImages(programsData);
+          
           dispatch({
             type: FETCH_PROGRAMS_SUCCESS,
             payload: enrichedPrograms,

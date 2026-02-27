@@ -42,7 +42,8 @@ export const registerCar: any = (userCar: any) => {
         userCar,
       );
 
-      if (response.status === 201) {
+      // apiClient returns data directly, check if response exists (success)
+      if (response) {
         // Car registered successfully
         logger.info('Car registered successfully', { car: userCar });
         dispatch(
@@ -57,7 +58,7 @@ export const registerCar: any = (userCar: any) => {
           dispatch(clearMessages());
         }, 2000);
       } else {
-        logger.warn('Car registration failed', { status: response.status });
+        logger.warn('Car registration failed');
         dispatch(
           addMessage({
             id: 1,
@@ -91,7 +92,7 @@ export const getCar = (registrationPlate: string) => {
       const response = await apiClient.get<any>(
         process.env.EXPO_PUBLIC_SERVER_URL+ `/cars/${registrationPlate}`,
       );
-      dispatch(getCarSuccess(response.data));
+      dispatch(getCarSuccess(response));
     } catch (error: any) {
       logger.error('Failed to get car', { registrationPlate, error });
       dispatch(
@@ -113,8 +114,14 @@ export const getUserCars = (token: string) => {
     Authorization: `Bearer ${token}`,
   },
 });
-      logger.info('User cars fetched successfully', { count: response.data?.length });
-      dispatch(getUserCarsSuccess(response.data));
+      
+      // apiClient returns data directly
+      const carsData = Array.isArray(response) 
+        ? response 
+        : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
+      
+      logger.info('User cars fetched successfully', { count: carsData.length });
+      dispatch(getUserCarsSuccess(carsData));
     } catch (err: any) {
       logger.error('Failed to get user cars', { error: err.message });
 
@@ -163,7 +170,8 @@ export const deleteCar = (payload: { carId: number; token: string }) => {
         }
       );
 
-      if (response.status === 202) {
+      // apiClient returns data directly, check if response exists (success)
+      if (response) {
         logger.info('Car deleted successfully', { carId: payload.carId });
         dispatch(deleteCarSuccess(payload.carId));
 
@@ -179,7 +187,7 @@ export const deleteCar = (payload: { carId: number; token: string }) => {
         // Refresh user cars
         dispatch(getUserCars(payload.token));
       } else {
-        logger.warn('Car deletion failed', { status: response.status });
+        logger.warn('Car deletion failed');
         dispatch(
           addMessage({
             id: Date.now(),

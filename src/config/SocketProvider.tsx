@@ -17,7 +17,20 @@ export const SocketProvider = ({ children }: any) => {
 
   if (!socketRef.current) {
     const socketPort = process.env.EXPO_PUBLIC_SOCKET_PORT || '9099';
-    const socketHost = process.env.EXPO_PUBLIC_SOCKET_HOST || process.env.EXPO_PUBLIC_SERVER_URL || 'localhost';
+    const serverUrl = process.env.EXPO_PUBLIC_SERVER_URL || '';
+    const socketHost = process.env.EXPO_PUBLIC_SOCKET_HOST || (() => {
+      // Extract host from full server URL if provided
+      if (serverUrl) {
+        try {
+          const url = new URL(serverUrl);
+          return `${url.protocol}//${url.hostname}`;
+        } catch {
+          // Fallback: remove protocol and port manually
+          return serverUrl.replace(/^https?:\/\//, '').split(':')[0];
+        }
+      }
+      return 'localhost';
+    })();
     const socketUrl = `${socketHost}:${socketPort}`;
 
     logger.info('Initializing socket connection', { socketUrl });

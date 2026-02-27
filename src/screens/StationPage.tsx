@@ -1,26 +1,26 @@
+import Icon from '@react-native-vector-icons/ionicons';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import {
-  ActivityIndicator,
-  Image,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Image,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import Icon from '@react-native-vector-icons/ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from '../components/ui/BackButton';
 import { fetchPrograms } from '../redux/actions/programsActions';
 import { selectStation } from '../redux/actions/stationActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { CarWashingProgram, RootState, Station } from '../redux/types/stationsActionTypes';
-import { goBackOrHome } from '../utils/navigation';
 import { resolveMediaUrl } from '../utils/media';
+import { goBackOrHome } from '../utils/navigation';
 
 type StationPageRouteProp = RouteProp<RootStackParamList, 'StationPage'>;
 type StationPageNavigationProp = NativeStackNavigationProp<RootStackParamList, 'StationPage'>;
@@ -138,6 +138,30 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
               </Text>
             </View>
             <Icon name="arrow-forward" size={18} color="#4F46E5" />
+          </Pressable>
+
+          {/* Waterless Mobile Wash CTA */}
+          <Pressable
+            style={styles.waterlessCard}
+            onPress={() => {
+              // Select first available program for waterless booking
+              const defaultProgram = programs[0] || {
+                id: 999,
+                name: 'Waterless Wash',
+                price: 25,
+                programType: 'waterless'
+              };
+              navigation.navigate('Buywash', { selectedProgram: defaultProgram });
+            }}
+          >
+            <View style={styles.waterlessIconBadge}>
+              <Icon name="water-outline" size={24} color="#10B981" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.waterlessTitle}>🚗 Order Waterless Mobile Wash</Text>
+              <Text style={styles.waterlessSubtitle}>Eco-friendly wash delivered to your location</Text>
+            </View>
+            <Icon name="chevron-forward" size={20} color="#10B981" />
           </Pressable>
 
           <Text style={styles.sectionTitle}>Available Programs</Text>
@@ -312,6 +336,36 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
+  },
+  waterlessCard: {
+    marginTop: 12,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 2,
+    borderColor: '#10B981',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  waterlessIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waterlessTitle: {
+    color: '#065F46',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  waterlessSubtitle: {
+    color: '#059669',
+    fontSize: 12,
+    marginTop: 2,
   },
   sectionTitle: {
     marginTop: 20,

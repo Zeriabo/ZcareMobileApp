@@ -2,7 +2,15 @@ import * as SecureStore from 'expo-secure-store';
 
 export async function saveSession(user: any) {
   try {
-    await SecureStore.setItemAsync('user_session', JSON.stringify(user));
+    if (!user) {
+      console.log('User is empty, skipping session save');
+      return;
+    }
+    
+    // Ensure user is an object, not already a string
+    const userToSave = typeof user === 'string' ? JSON.parse(user) : user;
+    const sessionString = JSON.stringify(userToSave);
+    await SecureStore.setItemAsync('user_session', sessionString);
   } catch (error) {
     console.log('Failed to save session', error);
   }

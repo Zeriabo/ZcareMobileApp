@@ -15,6 +15,8 @@ import store from './src/redux/store';
 import ActiveWashScreen from './src/screens/ActiveWashScreen';
 import AIAssistantScreen from './src/screens/AIAssistantScreen';
 import BuywashScreen from './src/screens/BuywashScreen';
+import DeliveryTrackingScreen from './src/screens/DeliveryTrackingScreen';
+import MapPickerScreen from './src/screens/MapPickerScreen';
 import RegisterCarScreen from './src/screens/RegisterCarScreen';
 import RepairShopScreen from './src/screens/RepairShopScreen';
 import StationPage from './src/screens/StationPage';
@@ -113,7 +115,8 @@ function AppContent() {
             <RootStack.Screen name="RepairShop" component={RepairShopScreen} />
             <RootStack.Screen name="AIAssistant" component={AIAssistantScreen} />
             <RootStack.Screen name="ActiveWash" component={ActiveWashScreen} />
-      
+            <RootStack.Screen name="MapPicker" component={MapPickerScreen} />
+            <RootStack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
         </SocketProvider>
