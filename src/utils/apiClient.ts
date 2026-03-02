@@ -4,6 +4,7 @@
 
 import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { logger } from './logger';
+import * as mockPaymentApi from './mockPaymentApi';
 
 interface ApiErrorResponse {
   message: string;
@@ -15,6 +16,7 @@ interface ApiErrorResponse {
 class ApiClient {
   private client: AxiosInstance;
   private baseURL: string;
+  private mockMode: boolean = false;
 
   constructor(baseURL: string = '') {
     this.baseURL = baseURL || (process.env.EXPO_PUBLIC_SERVER_URL || '');
@@ -28,6 +30,21 @@ class ApiClient {
     });
 
     this.setupInterceptors();
+  }
+
+  /**
+   * Enable/disable mock mode for payment endpoints
+   */
+  setMockMode(enabled: boolean) {
+    this.mockMode = enabled;
+    logger.info(`Mock mode ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Check if mock mode is enabled
+   */
+  isMockMode(): boolean {
+    return this.mockMode;
   }
 
   private setupInterceptors() {
@@ -46,7 +63,7 @@ class ApiClient {
       }
     );
 
-    // Response interceptor
+    // Response interceptor with mock support
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         logger.debug(`API Response: ${response.status} from ${response.config.url}`, {
@@ -55,6 +72,26 @@ class ApiClient {
         return response;
       },
       (error: AxiosError) => {
+        // If mock mode is enabled and this is a payment/booking endpoint, use mock data
+        if (this.mockMode && error.config?.url) {
+          const method = error.config.method?.toUpperCase() || 'GET';
+          const mockResponse = this.getMockResponse(method, error.config.url, error.config.data);
+          if (mockResponse !== null) {
+            logger.info(`✅ Using MOCK response for ${method} ${error.config.url}`, {
+              mockData: this.sanitizeData(mockResponse)
+            });
+            return Promise.resolve({
+              status: 200,
+              statusText: 'OK (Mock)',
+              data: mockResponse,
+              headers: {},
+              config: error.config,
+            } as AxiosResponse);
+          } else {
+            logger.warn(`Mock mode enabled but no mock handler for ${method} ${error.config.url}`);
+          }
+        }
+
         const errorResponse: ApiErrorResponse = {
           message: error.message,
           status: error.response?.status || 0,
@@ -62,10 +99,52 @@ class ApiClient {
           details: error.response?.data,
         };
 
-        logger.error(`API Error: ${error.config?.url}`, error, errorResponse);
+        logger.error(`API Error: ${error.config?.url}`, errorResponse);
         return Promise.reject(errorResponse);
       }
     );
+  }
+
+  /**
+   * Get mock response for payment and booking endpoints
+   */
+  private getMockResponse(method: string, url: string, data?: any): any | null {
+    // Payment endpoints (POST only)
+    if (method === 'POST') {
+      if (url?.includes('/payment/create-payment-intent')) {
+        return mockPaymentApi.mockCreatePaymentIntent(typeof data === 'string' ? JSON.parse(data) : data);
+      }
+
+      if (url?.includes('/payment/setup-intent') || url?.includes('/payment/create-setup-intent')) {
+        return mockPaymentApi.mockCreateSetupIntent();
+      }
+
+      if (url?.includes('/payment/confirm-payment')) {
+        const clientSecret = typeof data === 'string' ? JSON.parse(data) : data;
+        return mockPaymentApi.mockConfirmPayment(clientSecret?.clientSecret || clientSecret || '');
+      }
+
+      if (url?.includes('/payment/saved-cards') || url?.includes('/payment/cards')) {
+        return mockPaymentApi.mockAttachPaymentMethod(typeof data === 'string' ? JSON.parse(data) : data);
+      }
+    }
+
+    // Booking endpoints (GET)
+    if (method === 'GET') {
+      // Match booking detail endpoints: /booking/123, /bookings/123, /v1/bookings/123, etc.
+      const bookingMatch = url?.match(/\/(?:booking|bookings)(?:\/v1)?\/(\d+)/) || 
+                          url?.match(/\/v1\/bookings\/(\d+)/);
+      if (bookingMatch && bookingMatch[1]) {
+        return mockPaymentApi.mockGetBookingDetail(bookingMatch[1]);
+      }
+
+      // Saved cards list
+      if (url?.includes('/payment/saved-cards') || url?.includes('/payment/cards')) {
+        return mockPaymentApi.mockGetSavedCards();
+      }
+    }
+
+    return null;
   }
 
   /**

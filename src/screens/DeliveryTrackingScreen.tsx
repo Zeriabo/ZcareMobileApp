@@ -1,4 +1,5 @@
 import Icon from '@react-native-vector-icons/ionicons';
+import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -32,13 +33,16 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   });
+  const baseUrl = (process.env.EXPO_PUBLIC_SERVER_URL || '').trim().replace(/\/+$/, '');
+  const trackingEndpoints = [
+    `${baseUrl}/booking/${bookingId}/delivery-tracking`,
+    `${baseUrl}/v1/bookings/${bookingId}/delivery-tracking`,
+    `${baseUrl}/booking/v1/bookings/${bookingId}/delivery-tracking`,
+  ];
 
   useEffect(() => {
-    // Simulate fetching delivery person location
-    // In production, this would connect to your backend/socket for real-time updates
     fetchDeliveryPersonLocation();
     
-    // Set up interval for location updates (simulate real-time tracking)
     const interval = setInterval(() => {
       updateDeliveryPersonLocation();
     }, 5000); // Update every 5 seconds
@@ -48,20 +52,38 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
 
   const fetchDeliveryPersonLocation = async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await apiClient.get(`/booking/${bookingId}/delivery-location`);
-      
-      // Simulated delivery person data
-      setTimeout(() => {
-        setDeliveryPerson({
-          latitude: deliveryLatitude - 0.005,
-          longitude: deliveryLongitude - 0.005,
-          name: 'John Driver',
-          phone: '+1234567890',
-          eta: '15 min',
-        });
-        setLoading(false);
-      }, 1000);
+      for (const endpoint of trackingEndpoints) {
+        try {
+          const response = await axios.get(endpoint, { timeout: 5000 });
+          const data = response?.data || {};
+          const driverLat = Number(data.providerLatitude);
+          const driverLng = Number(data.providerLongitude);
+          const eta = Number(data.etaMinutes);
+          if (Number.isFinite(driverLat) && Number.isFinite(driverLng)) {
+            setDeliveryPerson({
+              latitude: driverLat,
+              longitude: driverLng,
+              name: String(data.specialistName || 'Wash Specialist'),
+              phone: String(data.specialistPhone || ''),
+              eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} min`,
+            });
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Try next endpoint.
+        }
+      }
+
+      // Fallback simulation when backend tracking endpoint is unavailable.
+      setDeliveryPerson({
+        latitude: deliveryLatitude - 0.005,
+        longitude: deliveryLongitude - 0.005,
+        name: 'Wash Specialist',
+        phone: '',
+        eta: '15 min',
+      });
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching delivery location:', error);
       Alert.alert('Error', 'Could not load delivery tracking');
@@ -69,12 +91,33 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
     }
   };
 
-  const updateDeliveryPersonLocation = () => {
-    // Simulate delivery person moving closer (in production, get from WebSocket/API)
+  const updateDeliveryPersonLocation = async () => {
+    for (const endpoint of trackingEndpoints) {
+      try {
+        const response = await axios.get(endpoint, { timeout: 5000 });
+        const data = response?.data || {};
+        const driverLat = Number(data.providerLatitude);
+        const driverLng = Number(data.providerLongitude);
+        const eta = Number(data.etaMinutes);
+        if (Number.isFinite(driverLat) && Number.isFinite(driverLng)) {
+          setDeliveryPerson((prev) => ({
+            latitude: driverLat,
+            longitude: driverLng,
+            name: String(data.specialistName || prev?.name || 'Wash Specialist'),
+            phone: String(data.specialistPhone || prev?.phone || ''),
+            eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} min`,
+          }));
+          return;
+        }
+      } catch {
+        // Try next endpoint.
+      }
+    }
+
+    // Fallback simulation if no backend tracking endpoint responds.
     setDeliveryPerson((prev) => {
       if (!prev) return prev;
       
-      // Move slightly towards destination (simulate movement)
       const latDiff = deliveryLatitude - prev.latitude;
       const lngDiff = deliveryLongitude - prev.longitude;
       

@@ -79,3 +79,83 @@ export const scheduleBookingReminder = async (
     trigger
   );
 };
+
+export const notifyRepairBookingCreated = async (vehicleplate: string, scheduledDate: string) => {
+  await displayLocalNotification(
+    '🔧 Repair Booked',
+    `Vehicle ${vehicleplate} scheduled for repair on ${new Date(scheduledDate).toLocaleDateString()}`
+  );
+};
+
+export const notifyRepairStatusChanged = async (vehicleplate: string, newStatus: string) => {
+  const statusMessages: Record<string, string> = {
+    CONFIRMED: '✓ Your repair has been confirmed',
+    IN_PROGRESS: '⏳ Your repair is now in progress',
+    COMPLETED: '✅ Your repair is complete',
+    CANCELLED: '❌ Your repair has been cancelled',
+  };
+  
+  const message = statusMessages[newStatus] || `Status updated to ${newStatus}`;
+  await displayLocalNotification('🔧 Repair Status Update', `${vehicleplate}: ${message}`);
+};
+
+export const notifyInspectionOverdue = async (vehicleplate: string, daysOverdue: number) => {
+  await displayLocalNotification(
+    '⚠️ Inspection Overdue',
+    `Vehicle ${vehicleplate} inspection is ${Math.abs(daysOverdue)} days overdue. Please schedule inspection.`
+  );
+};
+
+export const notifyInspectionDueSoon = async (vehicleplate: string, daysUntil: number) => {
+  await displayLocalNotification(
+    '📋 Inspection Due Soon',
+    `Vehicle ${vehicleplate} inspection is due in ${daysUntil} days`
+  );
+};
+
+export const scheduleRepairReminder = async (
+  scheduledDateIso: string | null | undefined,
+  vehicleplate: string
+) => {
+  if (!notifee) return;
+  if (!scheduledDateIso) return;
+  
+  const scheduledAt = new Date(scheduledDateIso).getTime();
+  if (!Number.isFinite(scheduledAt)) return;
+
+  // Notify 1 hour before the scheduled repair
+  const triggerAt = scheduledAt - 60 * 60 * 1000;
+  if (triggerAt <= Date.now()) return;
+
+  await notifee.requestPermission();
+  const channelId = await notifee.createChannel({
+    id: 'repair-reminders',
+    name: 'Repair reminders',
+    importance: AndroidImportance.HIGH,
+  });
+
+  const trigger: TimestampTrigger = {
+    type: TriggerType.TIMESTAMP,
+    timestamp: triggerAt,
+  };
+
+  await notifee.createTriggerNotification(
+    {
+      title: '🔧 Repair Reminder',
+      body: `Your repair for ${vehicleplate} starts in 1 hour.`,
+      android: {
+        channelId,
+        smallIcon: 'ic_launcher',
+      },
+      ios: {
+        foregroundPresentationOptions: {
+          badge: true,
+          sound: true,
+          banner: true,
+          list: true,
+        },
+      },
+    },
+    trigger
+  );
+};

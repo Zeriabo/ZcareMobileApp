@@ -1,7 +1,7 @@
 import { CardField, useStripe } from '@stripe/stripe-react-native';
 import axios from 'axios';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, Text, View } from 'react-native';
+import { ActivityIndicator, Button, Image, Text, View } from 'react-native';
 import { useDispatch } from 'react-redux';
 
 
@@ -9,12 +9,14 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
   const [loading, setLoading] = useState(false);
   const [cardDetails, setCardDetails] = useState<any>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { confirmPayment } = useStripe();
   const dispatch = useDispatch<any>();
 
   const handlePayPress = async () => {
+    setErrorMessage(null);
     if (!cardDetails?.complete) {
-      Alert.alert('Please enter complete card details');
+      setErrorMessage('Please enter complete card details');
       return;
     }
 
@@ -28,7 +30,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
           price: program.price,
           programType: program.programType,
         },
-        paymentMethod: { paymentMethodType: 'card' },
+        paymentMethod: { paymentMethodType: 'credit_card' },
       };
 
       const response = await axios.post(
@@ -49,7 +51,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
       });
 
       if (error) {
-        Alert.alert(`Payment failed: ${error.message}`);
+        setErrorMessage(`Payment failed: ${error.message}`);
         return;
       }
 
@@ -59,8 +61,8 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
         // 3️⃣ Create booking on backend (and receive QR code)
         const bookingDto = {
           token: user?.token,
-          carId: selectedCar?.id,
-          stationId: selectedStation?.id,
+          carId: selectedCar?.carId ?? selectedCar?.id,
+          stationId: selectedStation?.id ?? selectedStation?.stationId,
           washingProgramId: program.id,
           scheduledTime: new Date().toISOString(),
         };
@@ -78,7 +80,13 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
       }
     } catch (err: any) {
       console.error(err);
-      Alert.alert('Payment or booking failed', err.response?.data || err.message);
+      const apiData = err?.response?.data;
+      const normalized =
+        apiData?.message ||
+        (typeof apiData === 'string' ? apiData : null) ||
+        err?.message ||
+        'Payment or booking failed';
+      setErrorMessage(normalized);
     } finally {
       setLoading(false);
     }
@@ -97,6 +105,11 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
     <View style={{ flex: 1, padding: 20, alignItems: 'center' }}>
       {!qrCode ? (
         <>
+          {errorMessage ? (
+            <View style={{ width: '100%', backgroundColor: '#FFF1F2', borderColor: '#FECACA', borderWidth: 1, borderRadius: 8, padding: 10 }}>
+              <Text style={{ color: '#B91C1C', fontWeight: '700' }}>{errorMessage}</Text>
+            </View>
+          ) : null}
           <CardField
             postalCodeEnabled={true}
             placeholders={{ number: '4242 4242 4242 4242' }}

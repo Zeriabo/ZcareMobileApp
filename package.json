@@ -7,8 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test:build": "tsc --pretty false --skipLibCheck --esModuleInterop --module commonjs --target es2020 --jsx react --outDir .test-build src/utils/calulations.ts src/utils/paymentApi.ts src/utils/media.ts src/utils/navigation.ts src/utils/validators.ts src/utils/logger.ts src/utils/apiClient.ts src/redux/reducers/authReducer.tsx src/redux/reducers/programsReducer.tsx src/redux/reducers/carReducer.tsx src/redux/actions/AuthActions.tsx",
-    "test": "npm run test:build && node --test tests/authReducer.test.cjs tests/calculateDistance.test.cjs tests/carReducer.test.cjs tests/media.test.cjs tests/navigation.test.cjs tests/paymentApi.test.cjs tests/programsReducer.test.cjs tests/signInAction.test.cjs tests/validators.test.cjs"
+    "test:build": "tsc --pretty false --skipLibCheck --esModuleInterop --module commonjs --target es2020 --jsx react --outDir .test-build src/utils/calulations.ts src/utils/paymentApi.ts src/utils/media.ts src/utils/navigation.ts src/utils/validators.ts src/utils/logger.ts src/utils/apiClient.ts src/utils/repairService.ts src/utils/inspectionNotificationService.ts src/redux/reducers/authReducer.tsx src/redux/reducers/programsReducer.tsx src/redux/reducers/carReducer.tsx src/redux/reducers/repairReducer.ts src/redux/types/repairTypes.ts src/redux/actions/AuthActions.tsx src/redux/actions/repairActions.ts",
+    "test": "npm run test:build && node --test tests/authReducer.test.cjs tests/calculateDistance.test.cjs tests/carReducer.test.cjs tests/media.test.cjs tests/navigation.test.cjs tests/paymentApi.test.cjs tests/programsReducer.test.cjs tests/signInAction.test.cjs tests/validators.test.cjs tests/repairReducer.test.cjs tests/repairService.test.cjs tests/inspectionService.test.cjs tests/repairActions.test.cjs"
   },
   "dependencies": {
     "@apollo/client": "^4.0.10",

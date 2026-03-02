@@ -18,6 +18,19 @@ const getProgramEndpoints = (baseUrlRaw: string, stationId: string): string[] =>
   return [`${baseUrl}/programs/station/${stationId}`];
 };
 
+const normalizeProgram = (program: any) => {
+  const rawType = String(program?.programType || '').trim().toLowerCase();
+  const normalizedType = rawType === 'touch_less' ? 'touchless' : rawType;
+
+  return {
+    ...program,
+    name: typeof program?.name === 'string' ? program.name.trim() : program?.name,
+    description:
+      typeof program?.description === 'string' ? program.description.trim() : program?.description,
+    programType: normalizedType,
+  };
+};
+
 
 // Fetch programs action using REST API
 export const fetchPrograms = (stationId: string): ThunkAction<
@@ -44,8 +57,9 @@ export const fetchPrograms = (stationId: string): ThunkAction<
             ? response 
             : (Array.isArray(response?.data) ? response.data : Object.values(response || {}));
           
+          const normalizedPrograms = programsData.map(normalizeProgram);
           // Enrich with demo images (currently using demo images as fallback since backend files don't exist)
-          const enrichedPrograms = enrichProgramsWithDemoImages(programsData);
+          const enrichedPrograms = enrichProgramsWithDemoImages(normalizedPrograms);
           
           dispatch({
             type: FETCH_PROGRAMS_SUCCESS,

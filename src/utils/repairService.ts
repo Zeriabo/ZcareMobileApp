@@ -1,0 +1,142 @@
+/**
+ * Repair Service API Client
+ * Handles all repair booking and vehicle inspection API calls
+ */
+
+import { apiClient } from './apiClient';
+import { API_ENDPOINTS } from '../config/apiEndpoints';
+
+/**
+ * Types for repair services
+ */
+export interface VehicleInspection {
+  registrationNumber: string;
+  lastInspectionDate: string;
+  message: string;
+}
+
+export interface InspectionStatus {
+  registrationNumber: string;
+  lastInspectionDate: string;
+  nextInspectionDate: string;
+  daysUntilDue: number;
+  dueWithinThreshold: boolean;
+  thresholdDays: number;
+  message: string;
+}
+
+export interface RepairBooking {
+  id?: number;
+  vehicleRegistrationNumber: string;
+  repairShopId: string;
+  scheduledDate: string;
+  status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  completedAt?: string;
+}
+
+export interface CreateRepairBookingRequest {
+  vehicleRegistrationNumber: string;
+  repairShopId: string;
+  scheduledDate: string;
+  description?: string;
+}
+
+export interface UpdateRepairBookingStatusRequest {
+  status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+}
+
+/**
+ * Get last inspection date for a vehicle
+ */
+export const getLastInspection = async (registrationPlate: string): Promise<VehicleInspection> => {
+  const endpoint = API_ENDPOINTS.VEHICLE_INSPECTION.LAST_INSPECTION(registrationPlate);
+  return apiClient.get<VehicleInspection>(endpoint);
+};
+
+/**
+ * Get next inspection due date for a vehicle
+ */
+export const getNextInspection = async (registrationPlate: string): Promise<VehicleInspection> => {
+  const endpoint = API_ENDPOINTS.VEHICLE_INSPECTION.NEXT_INSPECTION(registrationPlate);
+  return apiClient.get<VehicleInspection>(endpoint);
+};
+
+/**
+ * Get complete inspection status for a vehicle with threshold
+ */
+export const getInspectionStatus = async (
+  registrationPlate: string,
+  thresholdDays: number = 30
+): Promise<InspectionStatus> => {
+  const endpoint = API_ENDPOINTS.VEHICLE_INSPECTION.INSPECTION_STATUS(registrationPlate);
+  return apiClient.get<InspectionStatus>(`${endpoint}?thresholdDays=${thresholdDays}`);
+};
+
+/**
+ * List all repair bookings
+ */
+export const listRepairBookings = async (): Promise<RepairBooking[]> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.LIST;
+  return apiClient.get<RepairBooking[]>(endpoint);
+};
+
+/**
+ * Get a specific repair booking
+ */
+export const getRepairBooking = async (bookingId: string | number): Promise<RepairBooking> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.DETAIL(String(bookingId));
+  return apiClient.get<RepairBooking>(endpoint);
+};
+
+/**
+ * Create a new repair booking
+ */
+export const createRepairBooking = async (data: CreateRepairBookingRequest): Promise<RepairBooking> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.CREATE;
+  return apiClient.post<RepairBooking>(endpoint, data);
+};
+
+/**
+ * Update repair booking status
+ */
+export const updateRepairBookingStatus = async (
+  bookingId: string | number,
+  status: string
+): Promise<RepairBooking> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.UPDATE_STATUS(String(bookingId));
+  const data: UpdateRepairBookingStatusRequest = { status: status as any };
+  return apiClient.patch<RepairBooking>(endpoint, data);
+};
+
+/**
+ * Cancel a repair booking
+ */
+export const cancelRepairBooking = async (bookingId: string | number): Promise<RepairBooking> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.DELETE(String(bookingId));
+  return apiClient.delete<RepairBooking>(endpoint);
+};
+
+/**
+ * Batch check inspection status for multiple vehicles
+ */
+export const checkMultipleInspections = async (
+  plates: string[],
+  thresholdDays: number = 30
+): Promise<Map<string, InspectionStatus>> => {
+  const results = new Map<string, InspectionStatus>();
+  
+  const promises = plates.map(async (plate) => {
+    try {
+      const status = await getInspectionStatus(plate, thresholdDays);
+      results.set(plate, status);
+    } catch (error: any) {
+      console.warn(`Failed to fetch inspection for plate ${plate}:`, error.message);
+    }
+  });
+
+  await Promise.all(promises);
+  return results;
+};

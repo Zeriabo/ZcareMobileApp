@@ -76,6 +76,22 @@ export const API_ENDPOINTS = {
     SERVICES: (id: string) => `/repairshops/${id}/services`,
   },
 
+  // Repair Bookings (z-repair service)
+  REPAIR_BOOKINGS: {
+    LIST: '/api/repair-bookings',
+    CREATE: '/api/repair-bookings',
+    DETAIL: (id: string) => `/api/repair-bookings/${id}`,
+    UPDATE_STATUS: (id: string) => `/api/repair-bookings/${id}/status`,
+    DELETE: (id: string) => `/api/repair-bookings/${id}`,
+  },
+
+  // Vehicle Inspection (z-repair service)
+  VEHICLE_INSPECTION: {
+    LAST_INSPECTION: (plate: string) => `/api/vehicles/${plate}/last-inspection`,
+    NEXT_INSPECTION: (plate: string) => `/api/vehicles/${plate}/next-inspection`,
+    INSPECTION_STATUS: (plate: string) => `/api/vehicles/${plate}/inspection`,
+  },
+
   // AI Assistant
   AI: {
     CHAT: ['/api/zcare-ai', '/zcare-ai', '/v1/zcare-ai'],

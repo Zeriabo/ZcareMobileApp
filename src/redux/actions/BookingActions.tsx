@@ -140,29 +140,38 @@ export const createBooking = (bookingInput: any) => {
   logger.debug('Creating booking', { bookingInput });
   return async (dispatch: Dispatch) => {
     try {
-      const response = await apiClient.post<any>(
-        process.env.EXPO_PUBLIC_SERVER_URL + '/booking',
-        bookingInput,
-      );
+      const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
+      const washType = String(bookingInput?.washType || '').toLowerCase();
+      const programType = String(bookingInput?.programType || '').toLowerCase();
+      const bookingType = String(bookingInput?.bookingType || '').toLowerCase();
+      const isWaterlessBooking =
+        washType === 'waterless' ||
+        programType === 'waterless' ||
+        bookingType === 'waterless_delivery' ||
+        bookingType === 'waterless';
+      const endpoint = isWaterlessBooking ? '/booking/waterless-delivery' : '/booking';
+      const response = await apiClient.post<any>(`${base}${endpoint}`, bookingInput);
+      const responseData = response?.data ?? response;
       logger.info('Booking created successfully', { booking: response });
 
       // Dispatch a success action
-      dispatch(createBookingSuccess(response));
+      dispatch(createBookingSuccess(responseData));
       await displayLocalNotification(
                 'Booking Successful', 
-                `${(!response.data.executed)?'Valid':'Not Valid'}`
+                `${(!responseData?.executed)?'Valid':'Not Valid'}`
               );
       const isRepair =
-        response?.data?.bookingType === 'REPAIR' ||
-        !!response?.data?.repairShopId ||
-        !response?.data?.washingProgramId;
+        responseData?.bookingType === 'REPAIR' ||
+        !!responseData?.repairShopId ||
+        !!responseData?.repairSkuId ||
+        !!responseData?.repairItemName;
       await scheduleBookingReminder(
-        bookingInput?.scheduledTime || response?.data?.scheduledTime,
+        bookingInput?.scheduledTime || responseData?.scheduledTime,
         isRepair ? 'Repair booking' : 'Wash booking'
       );
       
       // ✅ Return response data so the component can use it
-      return response.data;
+      return responseData;
     } catch (error) {
       logger.error('Failed to create booking', { error });
       throw error; // ✅ Re-throw so your component can catch it
@@ -178,10 +187,13 @@ export const updateBooking = (bookingId: any, booking: any) => {
       const attempts = [
         () => apiClient.patch<any>(`${base}/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
         () => apiClient.patch<any>(`${base}/booking/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.patch<any>(`${base}/booking/v1/bookings/${bookingId}/schedule`, { scheduledTime: booking?.scheduledTime }),
         () => apiClient.put<any>(`${base}/booking/${bookingId}`, booking),
         () => apiClient.put<any>(`${base}/v1/bookings/${bookingId}`, booking),
+        () => apiClient.put<any>(`${base}/booking/v1/bookings/${bookingId}`, booking),
         () => apiClient.patch<any>(`${base}/booking/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
         () => apiClient.patch<any>(`${base}/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
+        () => apiClient.patch<any>(`${base}/booking/v1/bookings/${bookingId}`, { scheduledTime: booking?.scheduledTime }),
       ];
 
       let lastError: any = null;

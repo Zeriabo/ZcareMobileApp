@@ -144,14 +144,20 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
           <Pressable
             style={styles.waterlessCard}
             onPress={() => {
-              // Select first available program for waterless booking
-              const defaultProgram = programs[0] || {
-                id: 999,
-                name: 'Waterless Wash',
+              const waterlessProgram = programs.find(
+                (p) =>
+                  Number.isFinite(Number(p?.id)) &&
+                  Number(p.id) > 0 &&
+                  String(p?.programType || '').trim().toLowerCase() === 'waterless'
+              );
+              const fallbackWaterlessProgram = {
+                id: null,
+                name: 'Waterless Mobile Wash',
                 price: 25,
-                programType: 'waterless'
+                programType: 'waterless',
+                description: 'Eco-friendly wash delivered to your location',
               };
-              navigation.navigate('Buywash', { selectedProgram: defaultProgram });
+              navigation.navigate('Buywash', { selectedProgram: waterlessProgram || fallbackWaterlessProgram });
             }}
           >
             <View style={styles.waterlessIconBadge}>

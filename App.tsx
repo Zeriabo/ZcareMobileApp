@@ -15,6 +15,7 @@ import store from './src/redux/store';
 import ActiveWashScreen from './src/screens/ActiveWashScreen';
 import AIAssistantScreen from './src/screens/AIAssistantScreen';
 import BuywashScreen from './src/screens/BuywashScreen';
+import CompletedBookingsScreen from './src/screens/CompletedBookingsScreen';
 import DeliveryTrackingScreen from './src/screens/DeliveryTrackingScreen';
 import MapPickerScreen from './src/screens/MapPickerScreen';
 import RegisterCarScreen from './src/screens/RegisterCarScreen';
@@ -87,6 +88,9 @@ function AppContent() {
       setIsRestoring(false);
     }
     restoreSession();
+    
+    // Mock mode DISABLED - using real backend
+    // enablePaymentMockMode();
   }, [dispatch]);
 
   if (isRestoring) {
@@ -115,6 +119,7 @@ function AppContent() {
             <RootStack.Screen name="RepairShop" component={RepairShopScreen} />
             <RootStack.Screen name="AIAssistant" component={AIAssistantScreen} />
             <RootStack.Screen name="ActiveWash" component={ActiveWashScreen} />
+            <RootStack.Screen name="CompletedBookings" component={CompletedBookingsScreen} />
             <RootStack.Screen name="MapPicker" component={MapPickerScreen} />
             <RootStack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
           </RootStack.Navigator>

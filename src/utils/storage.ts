@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export async function saveSession(user: any) {
   try {
@@ -30,6 +31,7 @@ export async function removeSession() {
     // expo-secure-store uses deleteItemAsync
     await SecureStore.deleteItemAsync('user_session');
     await SecureStore.deleteItemAsync('stripe_customer_id');
+    await AsyncStorage.removeItem(SAVED_CARDS_KEY);
   } catch (error) {
     console.log('Failed to remove session', error);
   }
@@ -49,5 +51,35 @@ export async function getStripeCustomerId() {
   } catch (error) {
     console.log('Failed to get stripe customer id', error);
     return null;
+  }
+}
+
+const SAVED_CARDS_KEY = 'saved_cards_cache';
+
+export async function saveSavedCards(cards: any[]) {
+  try {
+    await AsyncStorage.setItem(SAVED_CARDS_KEY, JSON.stringify(Array.isArray(cards) ? cards : []));
+  } catch (error) {
+    console.log('Failed to save cached cards', error);
+  }
+}
+
+export async function getSavedCards() {
+  try {
+    const raw = await AsyncStorage.getItem(SAVED_CARDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.log('Failed to read cached cards', error);
+    return [];
+  }
+}
+
+export async function clearSavedCards() {
+  try {
+    await AsyncStorage.removeItem(SAVED_CARDS_KEY);
+  } catch (error) {
+    console.log('Failed to clear cached cards', error);
   }
 }

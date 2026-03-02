@@ -35,11 +35,25 @@ const MyBookingsScreen: React.FC = () => {
   );
 
   const renderBookingItem = ({ item }: { item: any }) => {
+    const bookingTypeUpper = String(item.bookingType || '').toUpperCase();
+    const washTypeLower = String(item.washType || '').toLowerCase();
+    const hasDeliveryInfo =
+      !!item.deliveryAddress ||
+      item.deliveryLatitude !== null && item.deliveryLatitude !== undefined ||
+      item.deliveryLongitude !== null && item.deliveryLongitude !== undefined;
     const isRepairTicket =
-      item.bookingType === 'REPAIR' ||
+      bookingTypeUpper === 'REPAIR' ||
       !!item.repairShopId ||
       !!item.repairItemName ||
-      !item.washingProgramId;
+      !!item.repairSkuId;
+    const isWaterlessTicket =
+      !isRepairTicket &&
+      (
+        bookingTypeUpper === 'WATERLESS_DELIVERY' ||
+        washTypeLower === 'waterless' ||
+        washTypeLower === 'delivery' ||
+        hasDeliveryInfo
+      );
 
     const statusUpper = String(item.status || (item.executed ? 'FINISHED' : 'PURCHASED')).toUpperCase();
     const statusLabel = statusUpper.replaceAll('_', ' ');
@@ -154,17 +168,16 @@ const MyBookingsScreen: React.FC = () => {
           <View style={styles.detailRow}>
             <Text style={styles.label}>Program</Text>
             <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
-                  {!isRepairTicket && item.washType && (
+                  {!isRepairTicket && (
                     <View style={styles.detailRow}>
                       <Text style={styles.label}>Wash Type</Text>
                       <Text style={styles.value}>
-                        {item.washType === 'waterless' ? '💧 Waterless' : 
-                         item.washType === 'delivery' ? '🚗 Delivery' : 
+                        {isWaterlessTicket ? '💧 Waterless Mobile' :
                          '🏪 Regular'}
                       </Text>
                     </View>
                   )}
-                  {item.washType === 'delivery' && item.deliveryAddress && (
+                  {isWaterlessTicket && item.deliveryAddress && (
                     <>
                       <View style={styles.detailRow}>
                         <Text style={styles.label}>Delivery Address</Text>
@@ -208,9 +221,9 @@ const MyBookingsScreen: React.FC = () => {
             <Text style={styles.actionText}>Track Live Wash</Text>
           </TouchableOpacity>
         )}
-        {(item.washType === 'waterless' || item.washType === 'delivery') && 
-         item.deliveryLatitude && 
-         item.deliveryLongitude && 
+        {isWaterlessTicket && 
+         item.deliveryLatitude != null && 
+         item.deliveryLongitude != null && 
          !item.executed && (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: '#10B981', marginTop: 8 }]}
@@ -253,10 +266,23 @@ const MyBookingsScreen: React.FC = () => {
     );
   }
 
+  const completedCount = allBookings.filter(b => b.executed).length;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerWrap}>
-        <AppHeader title="Booking tickets" subtitle={`${bookings.length} active codes`} />
+        <View style={styles.headerTop}>
+          <AppHeader title="Booking tickets" subtitle={`${bookings.length} active codes`} />
+          {completedCount > 0 && (
+            <TouchableOpacity 
+              style={styles.completedBadge}
+              onPress={() => navigation.navigate('CompletedBookings')}
+            >
+              <Text style={styles.completedBadgeText}>📋</Text>
+              <Text style={styles.completedBadgeCount}>{completedCount}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       <FlatList
         data={bookings}
@@ -272,6 +298,18 @@ const MyBookingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.bg },
   headerWrap: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#16A34A',
+    borderRadius: 20,
+  },
+  completedBadgeText: { fontSize: 14 },
+  completedBadgeCount: { fontSize: 12, fontWeight: '700', color: '#fff' },
   listContent: { padding: Spacing.md },
   bookingCard: {
     marginBottom: 25,

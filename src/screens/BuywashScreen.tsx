@@ -36,7 +36,11 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [initializingCheckout, setInitializingCheckout] = useState(false);
   
   // New state for wash type and delivery
-  const [washType, setWashType] = useState<WashType>('regular');
+  const [washType, setWashType] = useState<WashType>(
+    String(route?.params?.selectedProgram?.programType || '').toLowerCase() === 'waterless'
+      ? 'waterless'
+      : 'regular'
+  );
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
@@ -46,9 +50,13 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [phoneError, setPhoneError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     setProgram({ ...selectedProgram });
+    if (String(selectedProgram?.programType || '').toLowerCase() === 'waterless') {
+      setWashType('waterless');
+    }
   }, [selectedProgram]);
 
   const validateDeliveryFields = (): boolean => {
@@ -150,17 +158,31 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handlePaymentMethodSelection = async (method: 'card' | 'apple_pay' | 'google_pay') => {
+        setCheckoutError(null);
         if (!validateDeliveryFields()) {
-          Alert.alert('Missing Information', 'Please fill in all required delivery information.');
+          setCheckoutError('Please fill in all required delivery information.');
           return;
         }
+    const isDeliveryType = washType !== 'regular';
+    const selectedProgramId = Number(selectedProgram?.id);
+    if (!isDeliveryType && (!Number.isFinite(selectedProgramId) || selectedProgramId <= 0)) {
+      setCheckoutError('Invalid wash program selected. Please re-open the station and choose a valid program.');
+      return;
+    }
 
     setInitializingCheckout(true);
     try {
-      await dispatch(create_paymentIntent(selectedProgram, method));
-      const isDeliveryType = washType !== 'regular';
+      const checkoutProgram = {
+        ...selectedProgram,
+        price: getWashTypePrice(),
+        programType: isDeliveryType ? 'waterless' : selectedProgram?.programType,
+        paymentProgramId: Number.isFinite(selectedProgramId) && selectedProgramId > 0 ? selectedProgramId : undefined,
+        paymentProgramType: isDeliveryType ? 'waterless' : selectedProgram?.programType,
+      };
+
+      await dispatch(create_paymentIntent(checkoutProgram, method));
       navigation.navigate('CheckoutForm', { 
-        program: selectedProgram,
+        program: checkoutProgram,
         washType,
         deliveryAddress: isDeliveryType ? deliveryAddress : undefined,
         deliveryPhone: isDeliveryType ? deliveryPhone : undefined,
@@ -169,10 +191,13 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
         deliveryLongitude: isDeliveryType ? Number(deliveryLongitude) : undefined,
       });
     } catch (error: any) {
-      Alert.alert(
-        'Checkout unavailable',
-        error?.response?.data?.message || 'We could not initialize payment. Please try again.'
-      );
+      const backendMessage =
+        typeof error?.details === 'string'
+          ? error.details
+          : typeof error?.response?.data === 'string'
+            ? error.response.data
+            : error?.details?.message || error?.response?.data?.message || error?.message;
+      setCheckoutError(backendMessage || 'We could not initialize payment. Please try again.');
     } finally {
       setInitializingCheckout(false);
     }
@@ -193,6 +218,11 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.headerTitle}>{program.name}</Text>
         </View>
 <View style={styles.card}>
+  {checkoutError ? (
+    <View style={styles.errorBanner}>
+      <Text style={styles.errorText}>{checkoutError}</Text>
+    </View>
+  ) : null}
   {(program.media?.picture || program.media?.video) && (
     <View style={styles.mediaContainer}>
       {/* Loading Spinner */}
@@ -439,6 +469,20 @@ const styles = StyleSheet.create({
   description: { fontSize: 16, color: '#666', marginBottom: 15, textAlign: 'center' },
   paymentButton: { width: '100%', paddingVertical: 10, borderRadius: 8 },
   loginPrompt: { color: '#999', fontSize: 14, textAlign: 'center' },
+  errorBanner: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   
   // Wash type selection styles
   washTypeSection: {

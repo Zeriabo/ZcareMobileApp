@@ -23,6 +23,7 @@ export type RootStackParamList = {
   RepairShop: { shop: RepairShop };
   AIAssistant: undefined;
   ActiveWash: { bookingId: number };
+  CompletedBookings: undefined;
   MapPicker: {
     onLocationSelected: (latitude: number, longitude: number, address: string) => void;
     initialLatitude?: number | null;

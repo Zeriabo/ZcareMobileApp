@@ -1,16 +1,25 @@
 import axios from 'axios';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import { RootState } from '../redux/store';
 import { Colors, Radius, Spacing } from '../theme/design';
 import { goBackOrHome } from '../utils/navigation';
+
+interface AIResponse {
+  intent: string;
+  payload?: any;
+  text?: string;
+}
 
 const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [message, setMessage] = useState('');
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
+  const user = useSelector((state: RootState) => state.user.user as any);
 
   const askAssistant = async () => {
     const trimmed = message.trim();
@@ -21,23 +30,30 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const encoded = encodeURIComponent(trimmed);
       const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
-      const aiBase = process.env.EXPO_PUBLIC_AI_URL || '';
+      const aiBase = process.env.EXPO_PUBLIC_AI_URL || base;
+      
+      // Try multiple endpoints for the AI analyze service
       const candidates = [
-        aiBase ? `${aiBase}/api/zcare-ai/${encoded}` : '',
-        aiBase ? `${aiBase}/zcare-ai/${encoded}` : '',
-        `${base}/api/zcare-ai/${encoded}`,
-        `${base}/zcare-ai/${encoded}`,
-        `${base}/v1/zcare-ai/${encoded}`,
+        `${aiBase}/analyze`,
+        `${aiBase}/api/zcare-ai/analyze`,
+        `${base}/api/zcare-ai/analyze`,
+        `${base}/analyze`,
       ].filter(Boolean);
 
       let lastError: any = null;
       let response: any = null;
 
+      const requestBody = { message: trimmed };
+
       for (const url of candidates) {
         try {
-          response = await axios.get(url, { timeout: 15000 });
+          response = await axios.post<AIResponse>(url, requestBody, {
+            timeout: 20000,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
           if (response?.status >= 200 && response?.status < 300) {
             break;
           }
@@ -49,15 +65,48 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         }
       }
 
-      if (!response) {
+      if (!response || !response.data) {
         throw lastError || new Error(
-          'AI endpoint not reachable. Set EXPO_PUBLIC_AI_URL to the AI service host.'
+          'AI endpoint not reachable. Ensure zcare-ai-python service is running.'
         );
       }
 
-      setAnswer(typeof response.data === 'string' ? response.data : JSON.stringify(response.data));
+      const aiResponse: AIResponse = response.data;
+
+      // Handle different intent types
+      switch (aiResponse.intent) {
+        case 'login_user':
+          if (aiResponse.payload) {
+            setAnswer(
+              `✅ Login successful!\n\nUser: ${aiResponse.payload.username}\nToken: ${aiResponse.payload.token?.substring(0, 20)}...`
+            );
+          } else {
+            setAnswer('Login intent detected, but no credentials provided.');
+          }
+          break;
+
+        case 'book_station':
+          if (aiResponse.payload) {
+            setAnswer(
+              `✅ Booking intent detected!\n\n${JSON.stringify(aiResponse.payload, null, 2)}\n\nProceed to booking screen?`
+            );
+          } else {
+            setAnswer('Booking intent detected, but incomplete information.');
+          }
+          break;
+
+        case 'chat':
+        case 'error':
+          setAnswer(aiResponse.text || 'No response from AI');
+          break;
+
+        default:
+          setAnswer(aiResponse.text || JSON.stringify(aiResponse, null, 2));
+      }
     } catch (error: any) {
-      Alert.alert('AI unavailable', error?.response?.data?.message || error?.message || 'Failed to get AI response');
+      const errorMsg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Failed to get AI response';
+      Alert.alert('AI unavailable', errorMsg);
+      setAnswer(`❌ Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

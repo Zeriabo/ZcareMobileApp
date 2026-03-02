@@ -21,7 +21,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { createBooking } from '../redux/actions/BookingActions';
 import { goBackOrHome } from '../utils/navigation';
 import { getPaymentApiBases, getSaveCardPaths } from '../utils/paymentApi';
-import { getStripeCustomerId, saveStripeCustomerId } from '../utils/storage';
+import { clearSavedCards, getSavedCards, getStripeCustomerId, saveSavedCards, saveStripeCustomerId } from '../utils/storage';
 import BackButton from './ui/BackButton';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
@@ -60,6 +60,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const cars = useSelector((state: any) => state.cars?.cars || []);
   const paymentIntent = useSelector((state: any) => state.cart?.pi);
@@ -112,11 +113,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           ? response.data.cards
           : [];
       setSavedCards(cards);
+      await saveSavedCards(cards);
       const defaultCard = cards.find((card: any) => card?.isDefault);
       setSelectedSavedCardId(cardIdOf(defaultCard) || cardIdOf(cards[0]) || null);
     } catch {
-      setSavedCards([]);
-      setSelectedSavedCardId(null);
+      const cachedCards = await getSavedCards();
+      setSavedCards(cachedCards);
+      const defaultCard = cachedCards.find((card: any) => card?.isDefault);
+      setSelectedSavedCardId(cardIdOf(defaultCard) || cardIdOf(cachedCards[0]) || null);
     } finally {
       setLoadingCards(false);
     }
@@ -324,10 +328,15 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
+  const showError = (message: string) => {
+    setPaymentError(message);
+  };
+
   const handlePayment = async () => {
-    if (!selectedCar) return Alert.alert('Error', 'Please select a car');
+    setPaymentError(null);
+    if (!selectedCar) return showError('Please select a car');
     if (!selectedSavedCardId && !cardDetails?.complete) {
-      return Alert.alert('Error', 'Please enter valid card details or choose a saved card');
+      return showError('Please enter valid card details or choose a saved card');
     }
     
     const today = new Date();
@@ -335,11 +344,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     const selectedDateOnly = new Date(selectedDate);
     selectedDateOnly.setHours(0, 0, 0, 0);
     if (selectedDateOnly.getTime() < today.getTime()) {
-        return Alert.alert('Error', 'Please select a future date');
+        return showError('Please select a future date');
     }
     
     const clientSecret = resolveClientSecret(paymentIntent);
-    if (!clientSecret) return Alert.alert('Error', 'Payment session expired. Please go back and try again.');
+    if (!clientSecret) return showError('Payment session expired. Please go back and try again.');
 
     setLoading(true);
     try {
@@ -353,8 +362,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         } catch (saveError: any) {
           const msg = saveError?.response?.data?.message || saveError?.message || 'Could not save card.';
           setSaveCardStatus(`Could not save card: ${msg}`);
-          Alert.alert('Card save failed', msg);
-          return;
+          showError(`${msg}. Continuing with payment.`);
         }
       }
 
@@ -380,7 +388,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           result.error.message ||
           'Payment confirmation failed.';
         console.log('[payment] Stripe confirm error:', result.error);
-        Alert.alert('Payment Failed', stripeMessage);
+        showError(stripeMessage);
         return;
       }
 
@@ -396,7 +404,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
               saveError?.message ||
               'Could not save card.';
             setSaveCardStatus(`Could not save card: ${msg}`);
-            Alert.alert('Card save failed', msg);
+            showError(msg);
           }
         }
 
@@ -425,16 +433,36 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           }
         } else {
           const washType = route.params?.washType || 'regular';
+          const isWaterless = String(washType).toLowerCase() === 'waterless';
+
+          if (!selectedCar) {
+            showError('Please select a car.');
+            return;
+          }
+          if (!isWaterless && !stationId) {
+            showError('Please select a station before booking.');
+            return;
+          }
+          if (!isWaterless && !route.params?.program?.id) {
+            showError('Please select a valid washing program.');
+            return;
+          }
+          if (isWaterless && !route.params?.deliveryAddress) {
+            showError('Delivery address is required for waterless wash.');
+            return;
+          }
           
           const bookingPayload = {
             carId: selectedCar,
             userId: user.id,
-            stationId,
-            washingProgramId: route.params?.program?.id,
+            stationId: isWaterless ? null : stationId,
+            washingProgramId: isWaterless ? (route.params?.program?.id ?? null) : route.params?.program?.id,
             scheduledTime: selectedDate.toISOString(),
             token: user.token,
             executed: false,
             washType,
+            bookingType: isWaterless ? 'WATERLESS_DELIVERY' : 'WASH',
+            programType: route.params?.program?.programType,
             deliveryAddress: route.params?.deliveryAddress,
             deliveryPhone: route.params?.deliveryPhone,
             deliveryNotes: route.params?.deliveryNotes,
@@ -448,15 +476,18 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         if (qrCode) {
           navigation.replace('QrScreen', { qrCode });
         } else {
-          Alert.alert('Booking Error', 'Payment succeeded but booking failed.');
+          showError('Payment succeeded but booking failed.');
         }
       } else {
         const status = result?.paymentIntent?.status || 'unknown';
         console.log('[payment] Unexpected payment intent status:', status, result?.paymentIntent);
-        Alert.alert('Payment Failed', `Transaction not completed (${status}).`);
+        showError(`Transaction not completed (${status}).`);
       }
     } catch (error: any) {
       const backendMessage =
+        typeof error?.details === 'string'
+          ? error.details
+          : error?.details?.message ||
         error?.response?.data?.message ||
         (typeof error?.response?.data === 'string' ? error.response.data : null) ||
         error?.message ||
@@ -466,7 +497,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         status: error?.response?.status,
         data: error?.response?.data,
       });
-      Alert.alert('Error', backendMessage);
+      showError(backendMessage);
     } finally {
       setLoading(false);
     }
@@ -491,6 +522,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                 <Text style={styles.priceText}>{Number(route.params?.program?.price || 0).toFixed(2)}</Text>
               </View>
             </View>
+            {paymentError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{paymentError}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.sectionCard}>
               <Text style={styles.sectionLabel}>Booking Details</Text>
@@ -571,7 +607,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                               await fetchSavedCards(customerId || '');
                               setSaveCardStatus('Default card updated.');
                             } catch (e: any) {
-                              Alert.alert('Could not set default', e?.response?.data?.message || e?.message || 'Try again later.');
+                              showError(e?.response?.data?.message || e?.message || 'Could not set default card.');
                             }
                           }}
                           style={styles.savedCardAction}
@@ -584,9 +620,12 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                               await deleteSavedCard(cardId);
                               if (selectedSavedCardId === cardId) setSelectedSavedCardId(null);
                               await fetchSavedCards(customerId || '');
+                              if (savedCards.length <= 1) {
+                                await clearSavedCards();
+                              }
                               setSaveCardStatus('Card removed.');
                             } catch (e: any) {
-                              Alert.alert('Could not delete card', e?.response?.data?.message || e?.message || 'Try again later.');
+                              showError(e?.response?.data?.message || e?.message || 'Could not delete card.');
                             }
                           }}
                           style={[styles.savedCardAction, styles.savedCardDanger]}
@@ -670,6 +709,20 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 6 },
   currency: { fontSize: 20, fontWeight: '700', color: '#818CF8' },
   priceText: { fontSize: 40, fontWeight: '900', color: '#fff', marginLeft: 4 },
+  errorBanner: {
+    marginBottom: 14,
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   sectionCard: {
     marginBottom: 14,
     backgroundColor: '#fff',

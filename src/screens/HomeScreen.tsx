@@ -451,16 +451,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <Pressable
           style={styles.waterlessFAB}
           onPress={() => {
-            // Use first available station for waterless booking, or create a generic one
-            const defaultStation = normalizedStations[0] || null;
-            const defaultProgram = {
-              id: 999,
+            const sourceStation = sheetStations[0] || normalizedStations[0];
+            const stationPrograms = Array.isArray(sourceStation?.programs) ? sourceStation.programs : [];
+            const stationWaterlessProgram = stationPrograms.find(
+              (p: any) =>
+                Number.isFinite(Number(p?.id)) &&
+                Number(p.id) > 0 &&
+                String(p?.programType || '').trim().toLowerCase() === 'waterless'
+            );
+            const fallbackWaterlessProgram = {
+              id: null,
               name: 'Waterless Mobile Wash',
               price: 25,
               programType: 'waterless',
-              description: 'Eco-friendly waterless wash delivered to your location'
+              description: 'Eco-friendly wash delivered to your location',
             };
-            navigation.navigate('Buywash', { selectedProgram: defaultProgram });
+            navigation.navigate('Buywash', { selectedProgram: stationWaterlessProgram || fallbackWaterlessProgram });
           }}
         >
           <View style={styles.waterlessFABIcon}>

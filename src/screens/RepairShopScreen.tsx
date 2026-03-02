@@ -1,7 +1,7 @@
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Picker } from '@react-native-picker/picker';
@@ -9,10 +9,12 @@ import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
 import { create_paymentIntent } from '../redux/actions/BuyActions';
+import { createRepairBooking, fetchInspectionStatus } from '../redux/actions/repairActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { RootState } from '../redux/store';
 import { Colors, Radius, Spacing } from '../theme/design';
 import { goBackOrHome } from '../utils/navigation';
+import * as repairService from '../utils/repairService';
 
 type RepairRoute = RouteProp<RootStackParamList, 'RepairShop'>;
 type RepairNavigation = NativeStackNavigationProp<RootStackParamList, 'RepairShop'>;
@@ -39,20 +41,46 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   const cars = useSelector((state: RootState) => state.cars.cars as any[]);
   const selectedStationId = useSelector((state: RootState) => (state as any).station?.selectedStation?.id ?? null);
   const washPrograms = useSelector((state: RootState) => (state as any).programsState?.programs || []);
+  const repairLoading = useSelector((state: RootState) => (state as any).repair?.loading ?? false);
+  const inspectionData = useSelector((state: RootState) => (state as any).repair?.inspectionData ?? new Map());
 
   const [selectedCarId, setSelectedCarId] = useState<number | null>(cars[0]?.carId ?? null);
+  const [selectedCarPlate, setSelectedCarPlate] = useState<string | null>(cars[0]?.registerationPlate || cars[0]?.registrationPlate || null);
   const [scheduleAt, setScheduleAt] = useState<string>(new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16));
   const [loading, setLoading] = useState(false);
   const [skuLoading, setSkuLoading] = useState(false);
   const [skuError, setSkuError] = useState<string | null>(null);
   const [repairOptions, setRepairOptions] = useState<CatalogSku[]>([]);
   const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
+  const [inspectionWarning, setInspectionWarning] = useState<string | null>(null);
+  const [checkingInspection, setCheckingInspection] = useState(false);
 
   const services = useMemo(() => (shop.servicesOffered || []).map(s => s.replaceAll('_', ' ')), [shop.servicesOffered]);
   const selectedRepair = useMemo(
     () => repairOptions.find(option => option.id === selectedRepairId) ?? null,
     [repairOptions, selectedRepairId]
   );
+
+  // Check vehicle inspection status when car selection changes
+  useEffect(() => {
+    if (selectedCarPlate) {
+      setCheckingInspection(true);
+      dispatch(fetchInspectionStatus(selectedCarPlate) as any)
+        .finally(() => setCheckingInspection(false));
+    }
+  }, [selectedCarPlate, dispatch]);
+
+  // Load inspection data from Redux
+  useEffect(() => {
+    if (selectedCarPlate && inspectionData.has(selectedCarPlate)) {
+      const inspection = inspectionData.get(selectedCarPlate);
+      if (inspection?.dueWithinThreshold) {
+        setInspectionWarning(`⚠️ Vehicle inspection is ${inspection.message}`);
+      } else {
+        setInspectionWarning(null);
+      }
+    }
+  }, [inspectionData, selectedCarPlate]);
 
   React.useEffect(() => {
     const fetchRepairOptions = async () => {
@@ -115,10 +143,11 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
-    if (!selectedCarId) {
+    if (!selectedCarId || !selectedCarPlate) {
       Alert.alert('Select a car', 'Please select a car for the repair booking.');
       return;
     }
+
     if (!selectedRepairId) {
       Alert.alert('Select repair', 'Please select what to repair.');
       return;
@@ -126,43 +155,31 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
     setLoading(true);
     try {
-      const localDateTime = (() => {
-        const dt = new Date(scheduleAt);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const ms = String(dt.getMilliseconds()).padStart(3, '0');
-        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}.${ms}`;
-      })();
-
-      const payload = {
-        carId: selectedCarId,
-        userId: user.id,
-        stationId: selectedStationId,
+      // Create repair booking via z-repair service
+      const bookingData = {
+        vehicleRegistrationNumber: selectedCarPlate,
         repairShopId: shop.id,
-        repairSkuId: selectedRepairId,
-        repairItemName: selectedRepair?.name,
-        repairPriceAmount: selectedRepair?.priceAmount ?? 0,
-        repairPriceCurrency: selectedRepair?.priceCurrency || 'EUR',
-        scheduledTime: localDateTime,
-        token: user.token,
+        scheduledDate: scheduleAt,
+        description: `${selectedRepair?.name || 'Repair'} - ${selectedRepair?.description || 'Service'}`,
       };
 
-      const checkoutProgram = {
-        id: selectedRepairId,
-        name: selectedRepair?.name || 'Repair service',
-        price: selectedRepair?.priceAmount ?? 0,
-        programType: 'repair',
-        paymentProgramId: Number(washPrograms?.[0]?.id) || 1,
-        paymentProgramType: String(washPrograms?.[0]?.programType || 'foam'),
-      };
-
-      await dispatch(create_paymentIntent(checkoutProgram, 'card'));
-      navigation.navigate('CheckoutForm', {
-        program: checkoutProgram,
-        mode: 'repair',
-        repairBooking: payload,
-      });
+      await dispatch(createRepairBooking(bookingData) as any);
+      
+      Alert.alert('Success', 'Repair booking created successfully!', [
+        {
+          text: 'View Bookings',
+          onPress: () => navigation.navigate('RepairBookings' as any),
+        },
+        {
+          text: 'OK',
+          onPress: () => goBackSafe(),
+        },
+      ]);
     } catch (error: any) {
-      Alert.alert('Checkout unavailable', error?.response?.data?.message || error?.message || 'Failed to initialize repair payment');
+      Alert.alert(
+        'Booking Failed',
+        error?.message || 'Failed to create repair booking. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -210,17 +227,37 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <Text style={styles.label}>Choose Car</Text>
         {cars.length > 0 ? (
-          <View style={styles.pickerWrap}>
-            <Picker selectedValue={selectedCarId} onValueChange={(value) => setSelectedCarId(Number(value))}>
-              {cars.map((car) => (
-                <Picker.Item
-                  key={car.carId}
-                  label={`${car.manufacture} (${car.registerationPlate || car.registrationPlate || '-'})`}
-                  value={car.carId}
-                />
-              ))}
-            </Picker>
-          </View>
+          <>
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={selectedCarId}
+                onValueChange={(value) => {
+                  setSelectedCarId(Number(value));
+                  const car = cars.find(c => c.carId === Number(value));
+                  const plate = car?.registerationPlate || car?.registrationPlate || null;
+                  setSelectedCarPlate(plate);
+                }}
+              >
+                {cars.map((car) => (
+                  <Picker.Item
+                    key={car.carId}
+                    label={`${car.manufacture} (${car.registerationPlate || car.registrationPlate || '-'})`}
+                    value={car.carId}
+                  />
+                ))}
+              </Picker>
+            </View>
+            {checkingInspection && (
+              <Text style={{ marginTop: 8, color: '#3B82F6', fontSize: 13 }}>
+                Checking inspection status...
+              </Text>
+            )}
+            {inspectionWarning && (
+              <Text style={{ marginTop: 8, color: '#DC2626', fontSize: 13, fontWeight: '600' }}>
+                {inspectionWarning}
+              </Text>
+            )}
+          </>
         ) : (
           <Text style={styles.help}>No cars found. Add a car first.</Text>
         )}
@@ -234,7 +271,11 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.input}
         />
 
-        <PrimaryButton onPress={handleBookRepair} label={loading ? 'Booking...' : 'Book Repair'} loading={loading} />
+        <PrimaryButton 
+          onPress={handleBookRepair} 
+          label={loading || repairLoading ? 'Booking...' : 'Book Repair'} 
+          loading={loading || repairLoading} 
+        />
       </AppCard>
     </ScrollView>
   );

@@ -8,6 +8,7 @@ import buyReducer from './reducers/buyReducer';
 import carReducer from './reducers/carReducer';
 import messageReducer from './reducers/messagereducer';
 import { programsReducer } from './reducers/programsReducer';
+import repairReducer from './reducers/repairReducer';
 import stationReducer from './reducers/stationReducer';
 import stationsReducer from './reducers/stationsReducer';
 import washesReducer from './reducers/washesReducer';
@@ -26,6 +27,7 @@ const rootReducer:any = combineReducers({
   cart: buyReducer,
   booking: bookingReducer,
   cars: carReducer,
+  repair: repairReducer,
   station: stationReducer,
   washes: washesReducer,
   programsState: programsReducer,

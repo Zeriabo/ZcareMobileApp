@@ -1,9 +1,10 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import axios from 'axios';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootStackParamList } from '../redux/types/stackParams';
+import { apiClient } from '../utils/apiClient';
+import { logger } from '../utils/logger';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveWash'>;
 
@@ -16,34 +17,46 @@ const normalizeStatus = (raw: any) => {
 const getStatusCopy = (status: string) => {
   switch (status) {
     case 'PURCHASED':
+    case 'NOT_PURCHASED':
       return {
         title: 'Your car wash is purchased',
         helper: 'Waiting for queue/wash start update from station.',
       };
     case 'QUEUING':
+    case 'QUEUE':
       return {
         title: 'Your car wash is in queue',
         helper: 'Your wash will start soon.',
       };
+    case 'STARTED':
+      return {
+        title: 'Your car wash is starting',
+        helper: 'Wash is being prepared.',
+      };
     case 'WASHING':
+    case 'IN_PROGRESS':
+    case 'INPROGRESS':
       return {
         title: 'Your car is being washed',
-        helper: 'Live wash status from backend',
+        helper: 'Live wash in progress.',
       };
     case 'FINISHED':
       return {
         title: 'Your car wash is finished',
-        helper: 'Finalizing...',
+        helper: 'Wash completed successfully!',
       };
     case 'CANCELED':
+    case 'CANCELLED':
       return {
         title: 'Your car wash is canceled',
-        helper: 'This wash was canceled by provider or user.',
+        helper: 'This wash was canceled.',
       };
-    case 'NOT_PURCHASED':
+    case 'FAULT':
+    case 'FAILED':
+    case 'ERROR':
       return {
-        title: 'Your car wash is not purchased',
-        helper: 'Please complete payment to continue.',
+        title: 'Wash encountered an issue',
+        helper: 'Please contact support.',
       };
     default:
       return {
@@ -62,9 +75,10 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
   const [backendBooking, setBackendBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const previousStatusRef = useRef<string | null>(null);
 
   const hasKnownStatus = (value: string) => Boolean(value && value !== 'PURCHASED');
-  const isRetryableStatus = (code?: number) => !code || code >= 500 || code === 404 || code === 405;
 
   const pickProgress = (source: any): number | null => {
     const candidates = [
@@ -101,56 +115,143 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
     let mounted = true;
 
     const fetchBookingStatus = async () => {
-      const base = process.env.EXPO_PUBLIC_SERVER_URL || '';
-      const noV1 = base.endsWith('/v1') ? base.slice(0, -3) : base;
-      const candidates = [
-        `${base}/booking/${bookingId}`,
-        `${base}/v1/bookings/${bookingId}`,
-        `${noV1}/v1/bookings/${bookingId}`,
-      ];
+      // Gateway route: /booking/{id} → rewrites to /v1/bookings/{id}
+      const url = `/booking/${bookingId}`;
+      
+      logger.debug('Fetching booking status', { url, bookingId });
 
-      let lastError: any = null;
-      let nextBackendBooking: any = null;
-      for (const url of candidates) {
-        try {
-          const response = await axios.get(url);
-          if (response?.data) {
-            nextBackendBooking = response.data;
-          }
-          if (!nextBackendBooking) continue;
-          if (!mounted) return;
-          setBackendBooking(nextBackendBooking);
+      try {
+        const response = await apiClient.get<any>(url);
+        
+        if (!mounted) return;
+
+        // apiClient returns data directly
+        if (response) {
+          const data = response;
+          
+          logger.info('Booking status fetched', { bookingId, status: data.status });
+          
+          // Map backend response to expected format
+          const mappedBooking = {
+            id: data.id,
+            status: data.status,
+            executed: data.executed,
+            scheduledTime: data.scheduledTime,
+            bookingTime: data.scheduledTime,
+            qrCode: data.qrCode,
+            bookingType: data.bookingType,
+            deliveryAddress: data.deliveryAddress,
+            deliveryLatitude: data.deliveryLatitude,
+            deliveryLongitude: data.deliveryLongitude,
+            washingProgramId: data.washingProgramId,
+            stationId: data.stationId,
+            carId: data.carId,
+            // Progress fields (may come from mock or future backend enhancement)
+            progress: data.progress,
+            progressPercent: data.progressPercent,
+            washProgress: data.washProgress,
+          };
+
+          setBackendBooking(mappedBooking);
           setError(null);
           setLoading(false);
-          dispatch({ type: 'UPDATE_BOOKING', payload: nextBackendBooking });
-          return;
-        } catch (e: any) {
-          lastError = e;
-          if (!isRetryableStatus(e?.response?.status)) break;
+          dispatch({ type: 'UPDATE_BOOKING', payload: mappedBooking });
         }
-      }
-
-      if (mounted) {
+      } catch (e: any) {
+        if (!mounted) return;
+        
+        // apiClient returns ApiErrorResponse with status, message, details
+        const statusCode = e?.status || e?.response?.status;
+        const errorMessage = e?.message || e?.details?.message || 'Could not fetch wash status';
+        
+        logger.error('Failed to fetch booking status', { bookingId, statusCode, errorMessage });
+        
+        // Show error only if it's not a temporary network issue or if mock mode didn't help
+        if (statusCode && statusCode >= 400 && statusCode < 500) {
+          setError('Booking not found or unavailable');
+        } else if (statusCode && statusCode >= 500) {
+          setError('Server error. Retrying...');
+        } else {
+          setError('Connection issue. Retrying...');
+        }
+        
         setLoading(false);
-        setError(lastError?.response?.data?.message || lastError?.message || 'Could not fetch wash status');
       }
     };
 
     fetchBookingStatus();
-    const timer = setInterval(fetchBookingStatus, 5000);
+    const timer = setInterval(fetchBookingStatus, 5000); // Poll every 5 seconds
+    
     return () => {
       mounted = false;
       clearInterval(timer);
     };
   }, [bookingId, dispatch]);
 
+  // Handle completion success modal
+  useEffect(() => {
+    if (status === 'FINISHED' && !showSuccessAlert && previousStatusRef.current !== 'FINISHED') {
+      setShowSuccessAlert(true);
+      Alert.alert(
+        '✅ Wash Completed!',
+        'Your car wash has been completed successfully.',
+        [
+          {
+            text: 'View History',
+            onPress: () => {
+              setShowSuccessAlert(false);
+              navigation.navigate('CompletedBookings');
+            },
+          },
+          {
+            text: 'Home',
+            onPress: () => {
+              setShowSuccessAlert(false);
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              });
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+    previousStatusRef.current = status;
+  }, [status, showSuccessAlert, navigation]);
+
   const progress = useMemo(() => {
+    // Try to get progress from data first
     const backendProgress = pickProgress(backendBooking);
     const bookingProgress = pickProgress(booking);
     if (typeof backendProgress === 'number') return backendProgress;
     if (typeof bookingProgress === 'number') return bookingProgress;
-    if (status.includes('FINISHED')) return 100;
-    return null;
+    
+    // Estimate progress based on status
+    switch (status) {
+      case 'NOT_PURCHASED':
+      case 'PURCHASED':
+        return 0;
+      case 'QUEUING':
+      case 'QUEUE':
+        return 15;
+      case 'STARTED':
+        return 25;
+      case 'WASHING':
+      case 'IN_PROGRESS':
+      case 'INPROGRESS':
+        return 60;
+      case 'FINISHED':
+        return 100;
+      case 'CANCELED':
+      case 'CANCELLED':
+      case 'FAULT':
+      case 'FAILED':
+      case 'ERROR':
+        return null; // Don't show progress for error states
+      default:
+        return null;
+    }
   }, [backendBooking, booking, status]);
 
   const statusCopy = getStatusCopy(status);
