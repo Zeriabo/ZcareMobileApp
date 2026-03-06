@@ -72,12 +72,17 @@ class ApiClient {
         return response;
       },
       (error: AxiosError) => {
-        // If mock mode is enabled and this is a payment/booking endpoint, use mock data
-        if (this.mockMode && error.config?.url) {
-          const method = error.config.method?.toUpperCase() || 'GET';
-          const mockResponse = this.getMockResponse(method, error.config.url, error.config.data);
-          if (mockResponse !== null) {
-            logger.info(`✅ Using MOCK response for ${method} ${error.config.url}`, {
+        const url = error.config?.url || '';
+        const method = error.config?.method?.toUpperCase() || 'GET';
+
+        // Always try mock data for vehicle endpoints on error
+        const isVehicleEndpoint = url?.includes('/vehicles/');
+        const isCatalogEndpoint = url?.includes('/catalog/skus');
+
+        if (isVehicleEndpoint || isCatalogEndpoint || this.mockMode) {
+          const mockResponse = this.getMockResponse(method, url, error.config?.data);
+          if (mockResponse !== null && mockResponse?.error !== 'Vehicle not found') {
+            logger.info(`✅ Using MOCK response for ${method} ${url}`, {
               mockData: this.sanitizeData(mockResponse)
             });
             return Promise.resolve({
@@ -87,8 +92,9 @@ class ApiClient {
               headers: {},
               config: error.config,
             } as AxiosResponse);
-          } else {
-            logger.warn(`Mock mode enabled but no mock handler for ${method} ${error.config.url}`);
+          } else if (isVehicleEndpoint && error.response?.status === 404) {
+            // Vehicle not found in mock data - return 404
+            logger.debug(`Vehicle not found: ${url}`);
           }
         }
 
@@ -141,6 +147,45 @@ class ApiClient {
       // Saved cards list
       if (url?.includes('/payment/saved-cards') || url?.includes('/payment/cards')) {
         return mockPaymentApi.mockGetSavedCards();
+      }
+
+      // Catalog SKUs (repair services)
+      if (url?.includes('/catalog/skus') || url?.includes('/api/catalog/skus')) {
+        return mockPaymentApi.mockGetCatalogSkus();
+      }
+
+      // Vehicle inspection status: /api/vehicles/{plate}/inspection?thresholdDays=30
+      const inspectionMatch = url?.match(/\/vehicles\/([^/?]+)\/inspection/);
+      if (inspectionMatch && inspectionMatch[1]) {
+        const plate = inspectionMatch[1];
+        const thresholdMatch = url?.match(/thresholdDays=(\d+)/);
+        const threshold = thresholdMatch ? parseInt(thresholdMatch[1], 10) : 30;
+        const mockStatus = mockPaymentApi.mockGetInspectionStatus(plate, threshold);
+        return mockStatus || { error: 'Vehicle not found', status: 404 };
+      }
+
+      // Vehicle last inspection: /api/vehicles/{plate}/last-inspection
+      const lastInspectionMatch = url?.match(/\/vehicles\/([^/?]+)\/last-inspection/);
+      if (lastInspectionMatch && lastInspectionMatch[1]) {
+        const plate = lastInspectionMatch[1];
+        const mockLastInspection = mockPaymentApi.mockGetLastInspection(plate);
+        return mockLastInspection || { error: 'Vehicle not found', status: 404 };
+      }
+
+      // Vehicle next inspection: /api/vehicles/{plate}/next-inspection
+      const nextInspectionMatch = url?.match(/\/vehicles\/([^/?]+)\/next-inspection/);
+      if (nextInspectionMatch && nextInspectionMatch[1]) {
+        const plate = nextInspectionMatch[1];
+        const mockNextInspection = mockPaymentApi.mockGetNextInspection(plate);
+        return mockNextInspection || { error: 'Vehicle not found', status: 404 };
+      }
+
+      // Vehicle lookup: /api/vehicles/{plate}
+      const vehicleMatch = url?.match(/\/vehicles\/([^/?]+)(?:\?|$)/);
+      if (vehicleMatch && vehicleMatch[1]) {
+        const plate = vehicleMatch[1];
+        const mockVehicle = mockPaymentApi.mockGetVehicleData(plate);
+        return mockVehicle || { error: 'Vehicle not found', status: 404 };
       }
     }
 

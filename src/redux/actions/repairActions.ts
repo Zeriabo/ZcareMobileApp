@@ -3,21 +3,23 @@
  * Async actions for repair bookings and vehicle inspection
  */
 
-import { AppDispatch } from '../store';
 import { logger } from '../../utils/logger';
 import {
-  displayLocalNotification,
-  notifyRepairBookingCreated,
-  notifyRepairStatusChanged,
-  scheduleRepairReminder,
+    notifyRepairBookingCreated,
+    notifyInspectionDueSoon,
+    notifyInspectionOverdue,
+    notifyRepairStatusChanged,
+    scheduleRepairReminder
 } from '../../utils/notifications';
 import * as repairService from '../../utils/repairService';
+import { AppDispatch } from '../store';
 import {
-  REPAIR_ACTION_TYPES,
-  RepairBooking,
-  CreateRepairBookingRequest,
-  InspectionData,
+    CreateRepairBookingRequest,
+    InspectionData,
+    REPAIR_ACTION_TYPES
 } from '../types/repairTypes';
+
+const inspectionNotificationCache = new Map<string, string>();
 
 /**
  * Fetch all repair bookings
@@ -219,6 +221,21 @@ export const fetchInspectionStatus = (registrationPlate: string, thresholdDays: 
   return async (dispatch: AppDispatch) => {
     try {
       const status = await repairService.getInspectionStatus(registrationPlate, thresholdDays);
+
+      const notificationDate = new Date().toISOString().slice(0, 10);
+      const notificationState = status.daysUntilDue < 0 ? 'overdue' : status.dueWithinThreshold ? 'due-soon' : 'ok';
+      const notificationKey = `${registrationPlate}:${notificationState}:${notificationDate}`;
+
+      if (!inspectionNotificationCache.has(notificationKey)) {
+        if (status.daysUntilDue < 0) {
+          await notifyInspectionOverdue(registrationPlate, status.daysUntilDue);
+          inspectionNotificationCache.set(notificationKey, notificationDate);
+        } else if (status.dueWithinThreshold) {
+          await notifyInspectionDueSoon(registrationPlate, status.daysUntilDue);
+          inspectionNotificationCache.set(notificationKey, notificationDate);
+        }
+      }
+
       dispatch({
         type: REPAIR_ACTION_TYPES.SET_INSPECTION_DATA_FOR_PLATE,
         payload: {
@@ -229,10 +246,26 @@ export const fetchInspectionStatus = (registrationPlate: string, thresholdDays: 
 
       logger.info('Inspection status fetched', { plate: registrationPlate });
     } catch (error: any) {
-      logger.error('Failed to fetch inspection status', {
-        plate: registrationPlate,
-        error: error?.message,
-      });
+      const status = error?.status || error?.response?.status;
+      
+      // 404 means no inspection data exists - this is not an error condition
+      if (status === 404) {
+        dispatch({
+          type: REPAIR_ACTION_TYPES.SET_INSPECTION_DATA_FOR_PLATE,
+          payload: {
+            plate: registrationPlate,
+            data: null, // No inspection data available
+          },
+        });
+        logger.debug('No inspection data available', { plate: registrationPlate });
+      } else {
+        // Only log actual errors (not 404s)
+        logger.error('Failed to fetch inspection status', {
+          plate: registrationPlate,
+          error: error?.message,
+          status,
+        });
+      }
     }
   };
 };

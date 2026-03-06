@@ -1,20 +1,18 @@
+import { Picker } from '@react-native-picker/picker';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import axios from 'axios';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Picker } from '@react-native-picker/picker';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
-import { create_paymentIntent } from '../redux/actions/BuyActions';
 import { createRepairBooking, fetchInspectionStatus } from '../redux/actions/repairActions';
-import { RootStackParamList } from '../redux/types/stackParams';
 import { RootState } from '../redux/store';
+import { RootStackParamList } from '../redux/types/stackParams';
 import { Colors, Radius, Spacing } from '../theme/design';
+import apiClient from '../utils/apiClient';
 import { goBackOrHome } from '../utils/navigation';
-import * as repairService from '../utils/repairService';
 
 type RepairRoute = RouteProp<RootStackParamList, 'RepairShop'>;
 type RepairNavigation = NativeStackNavigationProp<RootStackParamList, 'RepairShop'>;
@@ -53,7 +51,10 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   const [repairOptions, setRepairOptions] = useState<CatalogSku[]>([]);
   const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
   const [inspectionWarning, setInspectionWarning] = useState<string | null>(null);
+  const [lastInspectionDate, setLastInspectionDate] = useState<string | null>(null);
+  const [nextInspectionDate, setNextInspectionDate] = useState<string | null>(null);
   const [checkingInspection, setCheckingInspection] = useState(false);
+  const [checkedPlates, setCheckedPlates] = useState<Set<string>>(new Set());
 
   const services = useMemo(() => (shop.servicesOffered || []).map(s => s.replaceAll('_', ' ')), [shop.servicesOffered]);
   const selectedRepair = useMemo(
@@ -61,10 +62,11 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
     [repairOptions, selectedRepairId]
   );
 
-  // Check vehicle inspection status when car selection changes
+  // Check vehicle inspection status when car selection changes (only once per plate)
   useEffect(() => {
-    if (selectedCarPlate) {
+    if (selectedCarPlate && !checkedPlates.has(selectedCarPlate)) {
       setCheckingInspection(true);
+      setCheckedPlates(prev => new Set(prev).add(selectedCarPlate));
       dispatch(fetchInspectionStatus(selectedCarPlate) as any)
         .finally(() => setCheckingInspection(false));
     }
@@ -74,22 +76,30 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     if (selectedCarPlate && inspectionData.has(selectedCarPlate)) {
       const inspection = inspectionData.get(selectedCarPlate);
-      if (inspection?.dueWithinThreshold) {
+      if (inspection === null) {
+        // No inspection data available for this vehicle
+        setInspectionWarning(null);
+        setLastInspectionDate(null);
+        setNextInspectionDate(null);
+      } else if (inspection?.dueWithinThreshold) {
         setInspectionWarning(`⚠️ Vehicle inspection is ${inspection.message}`);
+        setLastInspectionDate(inspection?.lastInspectionDate || null);
+        setNextInspectionDate(inspection?.nextInspectionDate || null);
       } else {
         setInspectionWarning(null);
+        setLastInspectionDate(inspection?.lastInspectionDate || null);
+        setNextInspectionDate(inspection?.nextInspectionDate || null);
       }
     }
   }, [inspectionData, selectedCarPlate]);
 
   React.useEffect(() => {
     const fetchRepairOptions = async () => {
-      const baseUrl = process.env.EXPO_PUBLIC_SERVER_URL || '';
       setSkuLoading(true);
       setSkuError(null);
       try {
-        const response = await axios.get(`${baseUrl}/api/catalog/skus`);
-        const raw = Array.isArray(response.data) ? response.data : [];
+        const response = await apiClient.get<any[]>('/api/catalog/skus');
+        const raw = Array.isArray(response) ? response : [];
         const options: CatalogSku[] = raw
           .filter((item: any) => item && item.id)
           .map((item: any) => ({
@@ -121,7 +131,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         setSelectedRepairId(finalOptions[0]?.id ?? null);
       } catch (error: any) {
         setRepairOptions([]);
-        setSkuError(error?.response?.data?.message || 'Could not load repair services and prices');
+        setSkuError(error?.details?.message || error?.message || 'Could not load repair services and prices');
       } finally {
         setSkuLoading(false);
       }
@@ -255,6 +265,16 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
             {inspectionWarning && (
               <Text style={{ marginTop: 8, color: '#DC2626', fontSize: 13, fontWeight: '600' }}>
                 {inspectionWarning}
+              </Text>
+            )}
+            {lastInspectionDate && (
+              <Text style={{ marginTop: 8, color: '#374151', fontSize: 13 }}>
+                Last inspection date: {lastInspectionDate}
+              </Text>
+            )}
+            {nextInspectionDate && (
+              <Text style={{ marginTop: 4, color: '#374151', fontSize: 13 }}>
+                Next inspection due: {nextInspectionDate}
               </Text>
             )}
           </>

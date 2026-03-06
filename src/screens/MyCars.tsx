@@ -3,12 +3,13 @@ import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui';
-import { getInspectionForPlate } from '../data/carInspections';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
+import { fetchInspectionStatus } from '../redux/actions/repairActions';
 
 function MyCars() {
   const user = useSelector((state: any) => state.user.user);
   const cars = useSelector((state: any) => state.cars.cars);
+  const inspectionData = useSelector((state: any) => state.repair?.inspectionData ?? new Map());
   const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
@@ -33,6 +34,17 @@ function MyCars() {
       dispatch(getUserCars(user.token));
     }
   }, [dispatch, user, isFocused]);
+
+  useEffect(() => {
+    if (!isFocused || !Array.isArray(cars) || cars.length === 0) return;
+
+    cars.forEach((car: any) => {
+      const plate = car.registerationPlate || car.registrationPlate;
+      if (plate && !inspectionData.has(plate)) {
+        dispatch(fetchInspectionStatus(plate));
+      }
+    });
+  }, [cars, dispatch, inspectionData, isFocused]);
 
   const handleRemoveCar = (car: any) => {
     Alert.alert(
@@ -62,9 +74,9 @@ function MyCars() {
 
       {cars.map((car: any) => {
         const plate = car.registerationPlate || car.registrationPlate;
-        const inspection = getInspectionForPlate(plate);
-        const badge = getInspectionBadge(inspection?.result);
-        const nextInspection = getNextInspectionDate(inspection?.lastInspectionDate);
+        const inspection = inspectionData.get(plate);
+        const badge = getInspectionBadge(inspection?.dueWithinThreshold ? 'WARNING' : 'PASSED');
+        const nextInspection = inspection?.nextInspectionDate || getNextInspectionDate(inspection?.lastInspectionDate);
         return (
           <Card
             key={car.carId}
@@ -94,13 +106,13 @@ function MyCars() {
                  Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
               </Text>
               <Text fontSize={14} color="$gray10">
-                Last Inspection: {inspection?.lastInspectionDate || 'Not available yet'}
+                Last Inspection: {inspection?.lastInspectionDate || 'Not available'}
               </Text>
               <Text fontSize={14} color="$gray10">
-                Next Inspection Due: {nextInspection || 'Not available yet'}
+                Next Inspection Due: {nextInspection || 'Not available'}
               </Text>
               <Text fontSize={13} color="$gray9">
-                Inspection Result: {inspection?.result || 'Pending'}
+                Inspection Status: {inspection?.message || 'Not available'}
               </Text>
 
               <Button
