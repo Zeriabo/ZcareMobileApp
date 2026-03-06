@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/cars/${id}`,
     DELETE: (id: string) => `/cars/${id}`,
     INSPECTION: (licensePlate: string) => `/cars/inspection/${licensePlate}`,
+    SET_LAST_INSPECTION: (licensePlate: string) => `/cars/${licensePlate}/last-inspection`,
   },
 
   // User Profile
@@ -90,6 +91,7 @@ export const API_ENDPOINTS = {
     LAST_INSPECTION: (plate: string) => `/api/vehicles/${plate}/last-inspection`,
     NEXT_INSPECTION: (plate: string) => `/api/vehicles/${plate}/next-inspection`,
     INSPECTION_STATUS: (plate: string) => `/api/vehicles/${plate}/inspection`,
+    CALCULATE_INSPECTION: '/api/vehicles/inspection/calculate',
   },
 
   // AI Assistant

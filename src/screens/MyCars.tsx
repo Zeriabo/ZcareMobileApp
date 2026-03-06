@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
-import { fetchInspectionStatus } from '../redux/actions/repairActions';
+import { fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
 
 function MyCars() {
   const user = useSelector((state: any) => state.user.user);
@@ -41,10 +41,10 @@ function MyCars() {
     cars.forEach((car: any) => {
       const plate = car.registerationPlate || car.registrationPlate;
       if (plate && !inspectionData.has(plate)) {
-        dispatch(fetchInspectionStatus(plate));
+        dispatch(fetchInspectionStatusWithFallback(plate, car, 30, user?.token));
       }
     });
-  }, [cars, dispatch, inspectionData, isFocused]);
+  }, [cars, dispatch, inspectionData, isFocused, user?.token]);
 
   const handleRemoveCar = (car: any) => {
     Alert.alert(

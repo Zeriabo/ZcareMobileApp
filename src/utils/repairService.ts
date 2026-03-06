@@ -3,8 +3,8 @@
  * Handles all repair booking and vehicle inspection API calls
  */
 
-import { apiClient } from './apiClient';
 import { API_ENDPOINTS } from '../config/apiEndpoints';
+import { apiClient } from './apiClient';
 
 /**
  * Types for repair services
@@ -23,6 +23,20 @@ export interface InspectionStatus {
   dueWithinThreshold: boolean;
   thresholdDays: number;
   message: string;
+}
+
+interface CarInspectionResponse {
+  registrationPlate: string;
+  inspection: InspectionStatus;
+}
+
+export interface InspectionCalculationRequest {
+  registrationNumber?: string;
+  vehicleClass?: string;
+  firstRegistrationDate?: string;
+  lastInspectionDate?: string;
+  nextInspectionDate?: string;
+  thresholdDays?: number;
 }
 
 export interface RepairBooking {
@@ -71,8 +85,43 @@ export const getInspectionStatus = async (
   registrationPlate: string,
   thresholdDays: number = 30
 ): Promise<InspectionStatus> => {
-  const endpoint = API_ENDPOINTS.VEHICLE_INSPECTION.INSPECTION_STATUS(registrationPlate);
-  return apiClient.get<InspectionStatus>(`${endpoint}?thresholdDays=${thresholdDays}`);
+  const endpoint = API_ENDPOINTS.CARS.INSPECTION(registrationPlate);
+  const response = await apiClient.get<CarInspectionResponse>(endpoint, {
+    params: { thresholdDays },
+  });
+  return response.inspection;
+};
+
+export const setLastInspectionDate = async (
+  registrationPlate: string,
+  lastInspectionDate: string,
+  token?: string
+): Promise<InspectionStatus> => {
+  const endpoint = API_ENDPOINTS.CARS.SET_LAST_INSPECTION(registrationPlate);
+  const headers = token
+    ? {
+        Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+      }
+    : undefined;
+
+  const response = await apiClient.put<CarInspectionResponse>(
+    endpoint,
+    { lastInspectionDate },
+    { headers }
+  );
+
+  return response.inspection;
+};
+
+/**
+ * Calculate inspection status from manually provided vehicle details
+ */
+export const calculateInspectionStatus = async (
+  payload: InspectionCalculationRequest,
+  thresholdDays: number = 30
+): Promise<InspectionStatus> => {
+  const endpoint = API_ENDPOINTS.VEHICLE_INSPECTION.CALCULATE_INSPECTION;
+  return apiClient.post<InspectionStatus>(`${endpoint}?thresholdDays=${thresholdDays}`, payload);
 };
 
 /**

@@ -15,18 +15,23 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
   const [registrationPlate, setRegistrationPlate] = useState('');
   const [manufacture, setManufacture] = useState('');
   const [dateOfManufacture, setDateOfManufacture] = useState(new Date());
+  const [lastInspectionDate, setLastInspectionDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+  const [activeDateField, setActiveDateField] = useState<'manufacture' | 'inspection'>('manufacture');
   
   // Validation errors
   const [errors, setErrors] = useState<{
     registrationPlate?: string;
     manufacture?: string;
+    lastInspectionDate?: string;
   }>({});
 
   const token = useSelector((state: any) => state.user.user.token);
   const dispatch = useDispatch<any>();
+  const normalizedToken = (token || '').trim().replace(/^Bearer\s+/i, '');
   
-  const showDatePicker = () => {
+  const showDatePicker = (field: 'manufacture' | 'inspection') => {
+    setActiveDateField(field);
     setDatePickerVisible(true);
   };
 
@@ -36,7 +41,12 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (selectedDate !== undefined) {
-      setDateOfManufacture(selectedDate);
+      if (activeDateField === 'manufacture') {
+        setDateOfManufacture(selectedDate);
+      } else {
+        setLastInspectionDate(selectedDate);
+        validateField('lastInspectionDate', selectedDate.toISOString().slice(0, 10));
+      }
     }
     hideDatePicker();
   };
@@ -65,6 +75,13 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
           delete newErrors.manufacture;
         }
         break;
+      case 'lastInspectionDate':
+        if (!Validators.required(value)) {
+          newErrors.lastInspectionDate = 'Last inspection date is required';
+        } else {
+          delete newErrors.lastInspectionDate;
+        }
+        break;
     }
     
     setErrors(newErrors);
@@ -74,6 +91,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
     return (
       registrationPlate && 
       manufacture && 
+      !!lastInspectionDate &&
       Object.keys(errors).length === 0
     );
   };
@@ -82,6 +100,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
     // Validate before submission
     validateField('registrationPlate', registrationPlate);
     validateField('manufacture', manufacture);
+    validateField('lastInspectionDate', lastInspectionDate.toISOString().slice(0, 10));
 
     if (!isFormValid()) {
       return;
@@ -91,12 +110,15 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
       registrationPlate: registrationPlate,
       manufacture: manufacture,
       dateOfManufacture: dateOfManufacture,
+      lastInspectionDate,
       token: token,
       deviceRegistrationToken: '',
       carId: 0,
     };
     dispatch(registerCar(car));
-    dispatch(getUserCars(token));
+    if (normalizedToken) {
+      dispatch(getUserCars(normalizedToken));
+    }
     navigation.navigate('Home');
   };
 
@@ -131,9 +153,16 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
             {errors.manufacture}
           </HelperText>
 
-          <Button onPress={showDatePicker}>Select Date of Manufacture</Button>
+          <Button onPress={() => showDatePicker('manufacture')}>Select Date of Manufacture</Button>
+          <Button onPress={() => showDatePicker('inspection')}>Select Last Inspection Date</Button>
+          <HelperText type="info" visible>
+            Last inspection date: {lastInspectionDate.toISOString().slice(0, 10)}
+          </HelperText>
+          <HelperText type="error" visible={!!errors.lastInspectionDate}>
+            {errors.lastInspectionDate}
+          </HelperText>
           {isDatePickerVisible && (
-            <YearPicker value={dateOfManufacture} onChange={handleDateChange} />
+            <YearPicker value={activeDateField === 'manufacture' ? dateOfManufacture : lastInspectionDate} onChange={handleDateChange} />
           )}
         </Card.Content>
         <Card.Actions style={styles.cardActions}>

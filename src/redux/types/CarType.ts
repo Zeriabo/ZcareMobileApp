@@ -3,6 +3,7 @@ interface Car {
   registrationPlate: string;
   manufacture: string;
   dateOfManufacture: Date;
+  lastInspectionDate?: Date | string;
   token: string;
   deviceRegistrationToken: string;
 }

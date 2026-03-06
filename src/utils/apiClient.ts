@@ -133,6 +133,29 @@ class ApiClient {
       if (url?.includes('/payment/saved-cards') || url?.includes('/payment/cards')) {
         return mockPaymentApi.mockAttachPaymentMethod(typeof data === 'string' ? JSON.parse(data) : data);
       }
+
+      // Vehicle inspection calculation from manual input
+      if (url?.includes('/vehicles/inspection/calculate')) {
+        const payload = typeof data === 'string' ? JSON.parse(data) : data;
+        const plate = payload?.registrationNumber || 'MANUAL-INPUT';
+        const status = mockPaymentApi.mockGetInspectionStatus(plate, Number(payload?.thresholdDays) || 30);
+        if (status) {
+          return status;
+        }
+        return {
+          registrationNumber: plate,
+          lastInspectionDate: payload?.lastInspectionDate || '',
+          nextInspectionDate: payload?.lastInspectionDate
+            ? new Date(new Date(payload.lastInspectionDate).setFullYear(new Date(payload.lastInspectionDate).getFullYear() + 1))
+              .toISOString()
+              .slice(0, 10)
+            : '',
+          daysUntilDue: 0,
+          dueWithinThreshold: true,
+          thresholdDays: Number(payload?.thresholdDays) || 30,
+          message: 'Inspection status estimated from provided details',
+        };
+      }
     }
 
     // Booking endpoints (GET)
@@ -162,6 +185,18 @@ class ApiClient {
         const threshold = thresholdMatch ? parseInt(thresholdMatch[1], 10) : 30;
         const mockStatus = mockPaymentApi.mockGetInspectionStatus(plate, threshold);
         return mockStatus || { error: 'Vehicle not found', status: 404 };
+      }
+
+      // Car-management inspection status: /cars/inspection/{plate}
+      const carInspectionMatch = url?.match(/\/cars\/inspection\/([^/?]+)/);
+      if (carInspectionMatch && carInspectionMatch[1]) {
+        const plate = carInspectionMatch[1];
+        const thresholdMatch = url?.match(/thresholdDays=(\d+)/);
+        const threshold = thresholdMatch ? parseInt(thresholdMatch[1], 10) : 30;
+        const mockStatus = mockPaymentApi.mockGetInspectionStatus(plate, threshold);
+        return mockStatus
+          ? { registrationPlate: plate, inspection: mockStatus }
+          : { error: 'Vehicle not found', status: 404 };
       }
 
       // Vehicle last inspection: /api/vehicles/{plate}/last-inspection

@@ -5,9 +5,9 @@
 
 import { logger } from '../../utils/logger';
 import {
-    notifyRepairBookingCreated,
     notifyInspectionDueSoon,
     notifyInspectionOverdue,
+    notifyRepairBookingCreated,
     notifyRepairStatusChanged,
     scheduleRepairReminder
 } from '../../utils/notifications';
@@ -20,6 +20,63 @@ import {
 } from '../types/repairTypes';
 
 const inspectionNotificationCache = new Map<string, string>();
+
+const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const parseDate = (value?: string): Date | null => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isFinite(d.getTime()) ? d : null;
+};
+
+const addYears = (date: Date, years: number): Date => {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + years);
+  return d;
+};
+
+const buildLocalInspectionEstimate = (
+  registrationPlate: string,
+  vehicle: any,
+  thresholdDays: number
+): InspectionData => {
+  const today = new Date();
+  const effectiveThreshold = thresholdDays > 0 ? thresholdDays : 30;
+
+  const lastInspection =
+    parseDate(vehicle?.lastInspectionDate) ||
+    parseDate(vehicle?.inspectionDate) ||
+    null;
+
+  const nextInspection =
+    parseDate(vehicle?.nextInspectionDate) ||
+    (lastInspection ? addYears(lastInspection, 1) : null);
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const daysUntilDue = nextInspection
+    ? Math.ceil((nextInspection.getTime() - today.getTime()) / msPerDay)
+    : undefined;
+
+  const dueWithinThreshold =
+    typeof daysUntilDue === 'number' ? daysUntilDue <= effectiveThreshold : false;
+
+  const message = !nextInspection
+    ? 'Inspection due date estimated data unavailable'
+    : daysUntilDue! < 0
+      ? 'Inspection is overdue'
+      : dueWithinThreshold
+        ? 'Inspection date is near, booking recommended'
+        : 'Inspection date is not near yet';
+
+  return {
+    registrationNumber: registrationPlate,
+    lastInspectionDate: lastInspection ? toIsoDate(lastInspection) : '',
+    nextInspectionDate: nextInspection ? toIsoDate(nextInspection) : undefined,
+    daysUntilDue,
+    dueWithinThreshold,
+    message,
+  };
+};
 
 /**
  * Fetch all repair bookings
@@ -266,6 +323,86 @@ export const fetchInspectionStatus = (registrationPlate: string, thresholdDays: 
           status,
         });
       }
+    }
+  };
+};
+
+/**
+ * Fetch inspection status by registration plate with fallback to manual calculation
+ */
+export const fetchInspectionStatusWithFallback = (
+  registrationPlate: string,
+  vehicle: any,
+  thresholdDays: number = 30,
+  token?: string
+) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      const fallbackStatus = await repairService.getInspectionStatus(registrationPlate, thresholdDays);
+
+      const localEstimate = buildLocalInspectionEstimate(registrationPlate, vehicle, thresholdDays);
+      const mergedStatus: InspectionData = {
+        ...fallbackStatus,
+        nextInspectionDate: fallbackStatus?.nextInspectionDate || localEstimate.nextInspectionDate,
+        lastInspectionDate: fallbackStatus?.lastInspectionDate || localEstimate.lastInspectionDate,
+        daysUntilDue:
+          typeof fallbackStatus?.daysUntilDue === 'number'
+            ? fallbackStatus.daysUntilDue
+            : localEstimate.daysUntilDue,
+        dueWithinThreshold:
+          typeof fallbackStatus?.dueWithinThreshold === 'boolean'
+            ? fallbackStatus.dueWithinThreshold
+            : localEstimate.dueWithinThreshold,
+        message:
+          fallbackStatus?.message &&
+          !String(fallbackStatus.message).toLowerCase().includes('not available')
+            ? fallbackStatus.message
+            : localEstimate.message,
+      };
+
+      dispatch({
+        type: REPAIR_ACTION_TYPES.SET_INSPECTION_DATA_FOR_PLATE,
+        payload: {
+          plate: registrationPlate,
+          data: mergedStatus,
+        },
+      });
+
+      logger.info('Inspection status computed from manual vehicle details', { plate: registrationPlate });
+    } catch (fallbackError: any) {
+      if (token && vehicle?.lastInspectionDate) {
+        try {
+          const repaired = await repairService.setLastInspectionDate(
+            registrationPlate,
+            String(vehicle.lastInspectionDate).slice(0, 10),
+            token
+          );
+          dispatch({
+            type: REPAIR_ACTION_TYPES.SET_INSPECTION_DATA_FOR_PLATE,
+            payload: {
+              plate: registrationPlate,
+              data: repaired,
+            },
+          });
+          return;
+        } catch {
+          // ignore and continue to local estimate
+        }
+      }
+
+      const localEstimate = buildLocalInspectionEstimate(registrationPlate, vehicle, thresholdDays);
+      dispatch({
+        type: REPAIR_ACTION_TYPES.SET_INSPECTION_DATA_FOR_PLATE,
+        payload: {
+          plate: registrationPlate,
+          data: localEstimate,
+        },
+      });
+
+      logger.error('Failed to calculate inspection status from vehicle details', {
+        plate: registrationPlate,
+        error: fallbackError?.message,
+      });
     }
   };
 };
