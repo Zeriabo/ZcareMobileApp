@@ -34,18 +34,61 @@ export const deleteCarSuccess = (carId: Number) => ({
   type: DELETE_CAR_SUCCESS,
   payload: carId,
 });
+
+const normalizeToken = (token?: string) => (token || '').trim().replace(/^Bearer\s+/i, '');
+const toIsoDate = (value?: string | Date) => {
+  if (!value) return undefined;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return undefined;
+  return parsed.toISOString().slice(0, 10);
+};
+
 export const registerCar: any = (userCar: any) => {
   return async (dispatch: Dispatch<any>) => {
     try {
+      const rawToken = normalizeToken(userCar?.token);
+      const payload = {
+        ...userCar,
+        token: rawToken,
+        lastInspectionDate: toIsoDate(userCar?.lastInspectionDate),
+      };
+
       const response = await apiClient.post<any>(
         process.env.EXPO_PUBLIC_SERVER_URL + '/cars/register',
-        userCar,
+        payload,
+        {
+          headers: rawToken
+            ? {
+                Authorization: `Bearer ${rawToken}`,
+              }
+            : undefined,
+        }
       );
 
       // apiClient returns data directly, check if response exists (success)
       if (response) {
+        const plate = response?.registerationPlate || response?.registrationPlate || payload.registrationPlate;
+        const inspectionDate = payload.lastInspectionDate;
+
+        if (plate && inspectionDate && rawToken) {
+          try {
+            await apiClient.put(
+              `${process.env.EXPO_PUBLIC_SERVER_URL}/cars/${encodeURIComponent(plate)}/last-inspection`,
+              { lastInspectionDate: inspectionDate },
+              {
+                headers: {
+                  Authorization: `Bearer ${rawToken}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          } catch (e) {
+            logger.warn('Car registered but failed to sync lastInspectionDate endpoint', { plate, e });
+          }
+        }
+
         // Car registered successfully
-        logger.info('Car registered successfully', { car: userCar });
+        logger.info('Car registered successfully', { car: payload });
         dispatch(
           addMessage({
             id: 1,
@@ -53,7 +96,7 @@ export const registerCar: any = (userCar: any) => {
             status: 200,
           }),
         );
-        dispatch(registerCarSuccess(userCar));
+        dispatch(registerCarSuccess(payload));
         setTimeout(() => {
           dispatch(clearMessages());
         }, 2000);
@@ -109,11 +152,29 @@ export const getCar = (registrationPlate: string) => {
 export const getUserCars = (token: string) => {
   return async (dispatch: Dispatch) => {
     try {
-    const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/cars/user`, {
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-});
+      const rawToken = normalizeToken(token);
+
+      // Validate token exists
+      if (!rawToken) {
+        logger.error('No token provided for getUserCars');
+        dispatch(
+          addMessage({
+            id: Date.now(),
+            text: 'Authentication token missing. Please log in again.',
+            status: 401,
+          })
+        );
+        return;
+      }
+
+      logger.debug('Fetching user cars with token', { tokenLength: rawToken.length });
+
+      const response = await apiClient.get<any>(`${process.env.EXPO_PUBLIC_SERVER_URL}/cars/user`, {
+        headers: {
+          'Authorization': `Bearer ${rawToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
       
       // apiClient returns data directly
       const carsData = Array.isArray(response) 
@@ -123,20 +184,33 @@ export const getUserCars = (token: string) => {
       logger.info('User cars fetched successfully', { count: carsData.length });
       dispatch(getUserCarsSuccess(carsData));
     } catch (err: any) {
-      logger.error('Failed to get user cars', { error: err.message });
+      const errorStatus = err?.status || err?.response?.status || 0;
+      const errorMessage = err?.message || err?.details?.error || 'Failed to fetch cars';
 
-      const message =
-        err.response?.data?.message ||
-        (typeof err.response?.data === "string" ? err.response.data : null) ||
-        err.message;
+      logger.error('Failed to get user cars', { 
+        status: errorStatus,
+        error: errorMessage,
+        details: err?.details 
+      });
 
-      dispatch(
-        addMessage({
-          id: Date.now(),
-          text: message,
-          status: err.response?.status || 500,
-        }),
-      );
+      // Check if it's an authorization error
+      if (errorStatus === 401 || errorMessage.includes('Unauthorized')) {
+        dispatch(
+          addMessage({
+            id: Date.now(),
+            text: 'Authentication failed. Please log in again.',
+            status: 401,
+          })
+        );
+      } else {
+        dispatch(
+          addMessage({
+            id: Date.now(),
+            text: errorMessage,
+            status: errorStatus,
+          })
+        );
+      }
     }
   };
 };
@@ -157,57 +231,77 @@ export const setCarOwner = (userCar: any) => {
 export const deleteCar = (payload: { carId: number; token: string }) => {
   logger.debug('Deleting car', { carId: payload.carId });
 
-  return async (dispatch: any) => {
+  return async (dispatch: any, getState: any) => {
     try {
+      const rawToken = normalizeToken(payload.token);
       const response = await apiClient.delete<any>(
         `${process.env.EXPO_PUBLIC_SERVER_URL}/cars/`,
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(rawToken ? { Authorization: `Bearer ${rawToken}` } : {}),
+          },
           data: {
             carId: payload.carId,
-            token: payload.token,
+            token: rawToken,
           },
         }
       );
 
-      // apiClient returns data directly, check if response exists (success)
+      // Backend returns response with registration plate on success
       if (response) {
-        logger.info('Car deleted successfully', { carId: payload.carId });
+        const registrationPlate = response?.registrationPlate || response?.message || 'Car';
+        logger.info('Car deleted successfully', { carId: payload.carId, plate: registrationPlate });
         dispatch(deleteCarSuccess(payload.carId));
 
-        // ✅ Dispatch proper message object
         dispatch(
           addMessage({
             id: Date.now(),
-            text: 'Car deleted successfully',
+            text: `${registrationPlate} is deleted`,
             status: 200,
           })
         );
 
         // Refresh user cars
-        dispatch(getUserCars(payload.token));
+        dispatch(getUserCars(rawToken));
       } else {
         logger.warn('Car deletion failed');
         dispatch(
           addMessage({
             id: Date.now(),
-            text: 'Car deletion failed',
+            text: 'Car deletion failed. Please try again.',
             status: 500,
           })
         );
       }
 
-      setTimeout(() => dispatch(clearMessages()), 2000);
+      setTimeout(() => dispatch(clearMessages()), 3000);
     } catch (error: any) {
-      logger.error('Failed to delete car', { carId: payload.carId, error });
+      // Get the car's registration plate from state for error message too
+      const state = getState();
+      const car = state.car?.cars?.find((c: any) => c.carId === payload.carId);
+      const registrationPlate = car?.registrationPlate || car?.registerationPlate || 'Car';
+
+      const errorData = error?.response?.data || {};
+      const errorMessage = errorData?.error || errorData?.message || error?.message || 'An error occurred while deleting the car';
+      const errorStatus = error?.response?.status;
+
+      logger.error('Failed to delete car', { 
+        carId: payload.carId, 
+        plate: registrationPlate, 
+        status: errorStatus,
+        error 
+      });
+      
       dispatch(
         addMessage({
           id: Date.now(),
-          text: 'An error occurred while deleting the car',
-          status: 0,
+          text: `${registrationPlate}: ${errorMessage}`,
+          status: errorStatus || 0,
         })
       );
-      setTimeout(() => dispatch(clearMessages()), 2000);
+      
+      setTimeout(() => dispatch(clearMessages()), 3000);
     }
   };
 };

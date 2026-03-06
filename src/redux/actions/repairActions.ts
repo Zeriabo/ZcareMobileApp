@@ -338,7 +338,7 @@ export const fetchInspectionStatusWithFallback = (
 ) => {
   return async (dispatch: AppDispatch) => {
     try {
-      const fallbackStatus = await repairService.getInspectionStatus(registrationPlate, thresholdDays);
+      const fallbackStatus = await repairService.getInspectionStatus(registrationPlate, thresholdDays, token);
 
       const localEstimate = buildLocalInspectionEstimate(registrationPlate, vehicle, thresholdDays);
       const mergedStatus: InspectionData = {

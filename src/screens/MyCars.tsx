@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
 import { fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
+import { setLastInspectionDate } from '../utils/repairService';
 
 function MyCars() {
   const user = useSelector((state: any) => state.user.user);
@@ -62,6 +63,51 @@ function MyCars() {
     );
   };
 
+  const handleEditInspectionDate = (car: any) => {
+    const plate = car.registerationPlate || car.registrationPlate;
+    if (!plate) return;
+
+    const currentValue =
+      inspectionData.get(plate)?.lastInspectionDate ||
+      (car?.lastInspectionDate ? String(car.lastInspectionDate).slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+    const promptFn = (Alert as any).prompt;
+    if (typeof promptFn !== 'function') {
+      Alert.alert('Update inspection date', `Please use iOS prompt capable runtime to edit date. Current: ${currentValue}`);
+      return;
+    }
+
+    promptFn(
+      'Last Inspection Date',
+      'Enter date in format YYYY-MM-DD',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: async (input?: string) => {
+            const value = (input || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              Alert.alert('Invalid date', 'Use format YYYY-MM-DD');
+              return;
+            }
+
+            try {
+              await setLastInspectionDate(plate, value, user?.token);
+              dispatch(fetchInspectionStatusWithFallback(plate, { ...car, lastInspectionDate: value }, 30, user?.token));
+              if (user?.token) {
+                dispatch(getUserCars(user.token));
+              }
+            } catch (e: any) {
+              Alert.alert('Update failed', e?.message || 'Could not save inspection date');
+            }
+          },
+        },
+      ],
+      'plain-text',
+      currentValue,
+    );
+  };
+
   return (
     <YStack padding="$4" space="$4">
       <Text fontSize={22} fontWeight="700">
@@ -114,6 +160,18 @@ function MyCars() {
               <Text fontSize={13} color="$gray9">
                 Inspection Status: {inspection?.message || 'Not available'}
               </Text>
+
+              <Button
+                size="$4"
+                backgroundColor="$blue10"
+                color="white"
+                borderRadius="$3"
+                paddingHorizontal="$4"
+                pressStyle={{ scale: 0.95, backgroundColor: '$blue9' }}
+                onPress={() => handleEditInspectionDate(car)}
+              >
+                Edit Inspection Date
+              </Button>
 
               <Button
                 size="$4"

@@ -39,13 +39,43 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
     setDatePickerVisible(false);
   };
 
+  const normalizePickerDate = (value: any): Date | null => {
+    if (value == null) return null;
+
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      // Some month-year pickers may return raw year (e.g. 1995) instead of Date
+      if (value >= 1900 && value <= 3000) {
+        return new Date(value, 0, 1);
+      }
+
+      const fromEpoch = new Date(value);
+      if (Number.isFinite(fromEpoch.getTime())) {
+        return fromEpoch;
+      }
+    }
+
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      if (Number.isFinite(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return null;
+  };
+
   const handleDateChange = (_event: any, selectedDate?: Date) => {
-    if (selectedDate !== undefined) {
+    const normalizedDate = normalizePickerDate(selectedDate);
+    if (normalizedDate) {
       if (activeDateField === 'manufacture') {
-        setDateOfManufacture(selectedDate);
+        setDateOfManufacture(normalizedDate);
       } else {
-        setLastInspectionDate(selectedDate);
-        validateField('lastInspectionDate', selectedDate.toISOString().slice(0, 10));
+        setLastInspectionDate(normalizedDate);
+        validateField('lastInspectionDate', normalizedDate.toISOString().slice(0, 10));
       }
     }
     hideDatePicker();
@@ -154,6 +184,9 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
           </HelperText>
 
           <Button onPress={() => showDatePicker('manufacture')}>Select Date of Manufacture</Button>
+          <HelperText type="info" visible>
+            Date of manufacture: {dateOfManufacture.toISOString().slice(0, 10)}
+          </HelperText>
           <Button onPress={() => showDatePicker('inspection')}>Select Last Inspection Date</Button>
           <HelperText type="info" visible>
             Last inspection date: {lastInspectionDate.toISOString().slice(0, 10)}

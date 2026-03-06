@@ -62,6 +62,8 @@ export interface UpdateRepairBookingStatusRequest {
   status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 }
 
+const normalizeToken = (token?: string): string => (token || '').trim().replace(/^Bearer\s+/i, '');
+
 /**
  * Get last inspection date for a vehicle
  */
@@ -83,11 +85,18 @@ export const getNextInspection = async (registrationPlate: string): Promise<Vehi
  */
 export const getInspectionStatus = async (
   registrationPlate: string,
-  thresholdDays: number = 30
+  thresholdDays: number = 30,
+  token?: string
 ): Promise<InspectionStatus> => {
   const endpoint = API_ENDPOINTS.CARS.INSPECTION(registrationPlate);
+  const rawToken = normalizeToken(token);
   const response = await apiClient.get<CarInspectionResponse>(endpoint, {
     params: { thresholdDays },
+    headers: rawToken
+      ? {
+          Authorization: `Bearer ${rawToken}`,
+        }
+      : undefined,
   });
   return response.inspection;
 };
@@ -98,9 +107,10 @@ export const setLastInspectionDate = async (
   token?: string
 ): Promise<InspectionStatus> => {
   const endpoint = API_ENDPOINTS.CARS.SET_LAST_INSPECTION(registrationPlate);
+  const rawToken = normalizeToken(token);
   const headers = token
     ? {
-        Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+        Authorization: `Bearer ${rawToken}`,
       }
     : undefined;
 
