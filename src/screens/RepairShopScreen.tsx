@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
-import { createRepairBooking, fetchInspectionStatus } from '../redux/actions/repairActions';
+import { createRepairBooking, fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
 import { RootState } from '../redux/store';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { Colors, Radius, Spacing } from '../theme/design';
@@ -65,12 +65,15 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
   // Check vehicle inspection status when car selection changes (only once per plate)
   useEffect(() => {
     if (selectedCarPlate && !checkedPlates.has(selectedCarPlate)) {
+      const selectedCar = cars.find(c =>
+        (c?.registerationPlate || c?.registrationPlate || '').toUpperCase() === selectedCarPlate.toUpperCase()
+      );
       setCheckingInspection(true);
       setCheckedPlates(prev => new Set(prev).add(selectedCarPlate));
-      dispatch(fetchInspectionStatus(selectedCarPlate) as any)
+      dispatch(fetchInspectionStatusWithFallback(selectedCarPlate, selectedCar) as any)
         .finally(() => setCheckingInspection(false));
     }
-  }, [selectedCarPlate, dispatch]);
+  }, [selectedCarPlate, checkedPlates, cars, dispatch]);
 
   // Load inspection data from Redux
   useEffect(() => {
@@ -165,10 +168,16 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
     setLoading(true);
     try {
+      // Convert shop UUID to numeric ID for z-repair backend
+      // TODO: Backend should be updated to support UUID repair shop IDs
+      const numericShopId = Math.abs(shop.id.split('-')[0].split('').reduce((acc, char) => {
+        return acc + char.charCodeAt(0);
+      }, 0)) % 1000 + 1;
+
       // Create repair booking via z-repair service
       const bookingData = {
         vehicleRegistrationNumber: selectedCarPlate,
-        repairShopId: shop.id,
+        repairShopId: numericShopId,
         scheduledDate: scheduleAt,
         description: `${selectedRepair?.name || 'Repair'} - ${selectedRepair?.description || 'Service'}`,
       };

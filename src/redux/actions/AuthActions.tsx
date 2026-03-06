@@ -19,6 +19,8 @@ const getAuthEndpoint = (baseUrlRaw: string): string | null => {
   return `${baseUrl}/users/signin`;
 };
 
+const normalizeToken = (token?: string) => (token || '').trim().replace(/^Bearer\s+/i, '');
+
 export const signIn = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {
     if (signInInFlight) return;
@@ -71,31 +73,37 @@ export const signIn = (userData: any) => {
           }
         }
         
-        logger.info('Sign in successful', { 
-          username: sanitizedUserData.username, 
-          hasToken: !!userData?.token,
-          hasFirstName: !!userData?.firstName 
+        const normalizedToken = normalizeToken(userData?.token);
+        const normalizedUserData = {
+          ...userData,
+          token: normalizedToken,
+        };
+
+        logger.info('Sign in successful', {
+          username: sanitizedUserData.username,
+          hasToken: !!normalizedToken,
+          hasFirstName: !!normalizedUserData?.firstName
         });
         
         try {
           await displayLocalNotification(
             'Sign In Successful',
-            `Welcome, ${userData?.firstName || userData?.username || 'User'}!`
+            `Welcome, ${normalizedUserData?.firstName || normalizedUserData?.username || 'User'}!`
           );
         } catch (notifError) {
           logger.warn('Notification failed but continuing', { error: notifError });
         }
         
         try {
-          await saveSession(userData);
+          await saveSession(normalizedUserData);
         } catch (sessionError) {
           logger.warn('Save session failed but continuing', { error: sessionError });
         }
         
-        dispatch({ type: 'SIGN_IN_SUCCESS', payload: userData });
+        dispatch({ type: 'SIGN_IN_SUCCESS', payload: normalizedUserData });
         
-        if (userData?.token) {
-          dispatch(getUserCars(userData.token));
+        if (normalizedToken) {
+          dispatch(getUserCars(normalizedToken));
         }
         return;
       } catch (error: any) {

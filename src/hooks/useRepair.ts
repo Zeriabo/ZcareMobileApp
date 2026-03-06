@@ -3,14 +3,14 @@
  */
 
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../redux/store';
 import {
-  fetchRepairBookings,
-  fetchInspectionStatus,
-  createRepairBooking,
-  updateRepairBookingStatus,
-  cancelRepairBooking,
+    cancelRepairBooking,
+    createRepairBooking,
+    fetchInspectionStatus,
+    fetchRepairBookings,
+    updateRepairBookingStatus,
 } from '../redux/actions/repairActions';
+import { RootState } from '../redux/store';
 
 /**
  * Hook for accessing repair bookings state and actions
@@ -42,6 +42,7 @@ export const useInspectionData = (registrationPlate: string) => {
   const loading = useSelector((state: RootState) => (state as any).repair?.loading ?? false);
 
   const data = inspectionData.get(registrationPlate);
+  const hasData = data !== undefined && data !== null;
 
   const fetchInspection = () => {
     if (registrationPlate) {
@@ -50,12 +51,13 @@ export const useInspectionData = (registrationPlate: string) => {
   };
 
   return {
-    inspection: data,
+    inspection: hasData ? data : null,
     loading,
     fetchInspection,
-    isOverdue: data?.dueWithinThreshold,
-    daysUntilDue: data?.daysUntilDue,
-    message: data?.message,
+    hasInspectionData: hasData,
+    isOverdue: hasData ? data?.dueWithinThreshold : false,
+    daysUntilDue: hasData ? data?.daysUntilDue : null,
+    message: hasData ? data?.message : null,
   };
 };
 
