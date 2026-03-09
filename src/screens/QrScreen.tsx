@@ -1,10 +1,11 @@
-import { RootStackParamList } from '../redux/types/stackParams';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import BackButton from '../components/ui/BackButton';
-import { goBackOrHome } from '../utils/navigation';
 import QRCode from 'react-native-qrcode-svg';
+import BackButton from '../components/ui/BackButton';
+import { useLanguage } from '../contexts/LanguageContext';
+import { RootStackParamList } from '../redux/types/stackParams';
+import { goBackOrHome } from '../utils/navigation';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -40,12 +41,13 @@ const styles = StyleSheet.create({
 type Props = NativeStackScreenProps<RootStackParamList, 'QrScreen'>;
 
 const QrScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const { qrCode, executed } = route.params || {};
 
   if (!qrCode || executed) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>No valid QR code</Text>
+        <Text style={styles.text}>{t('qr.noValidCode')}</Text>
 
         <BackButton onPress={() => goBackOrHome(navigation)} />
       </View>
@@ -54,8 +56,8 @@ const QrScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Your QR Code</Text>
-      <Text style={styles.subText}>Show this code at the station to start your wash.</Text>
+      <Text style={styles.text}>{t('qr.yourCode')}</Text>
+      <Text style={styles.subText}>{t('qr.showAtStation')}</Text>
 
       <QRCode value={qrCode} size={250} />
 
@@ -68,7 +70,7 @@ const QrScreen: React.FC<Props> = ({ route, navigation }) => {
   }
   style={styles.backBtn}
 >
-  <Text style={styles.backText}>Go to Home</Text>
+  <Text style={styles.backText}>{t('qr.goHome')}</Text>
 </Pressable>
 
     </View>

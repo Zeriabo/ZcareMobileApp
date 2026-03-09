@@ -2,9 +2,11 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { confirm_payment } from '../redux/actions/BuyActions';
 
 const PaymentConfirmation = () => {
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const dispatch = useDispatch<any>();
   const pi = useSelector((state: any) => state.cart.pi);
@@ -29,10 +31,10 @@ const PaymentConfirmation = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Payment Confirmation</Text>
-      <Text>Your payment has been successfully confirmed!</Text>
+      <Text style={styles.title}>{t('paymentConfirmation.title')}</Text>
+      <Text>{t('paymentConfirmation.successMessage')}</Text>
       <Button
-        title="Confirm"
+        title={t('common.confirm')}
         onPress={() => {
           confirmPayment();
         }}

@@ -2,21 +2,22 @@ import axios from 'axios';
 import * as Location from 'expo-location';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { useDispatch, useSelector } from 'react-redux';
 import markerIcon from '../assets/images/wash-washing.png';
+import { useLanguage } from '../contexts/LanguageContext';
 import { fetchBookings } from '../redux/actions/BookingActions';
 import { fetchStations } from '../redux/actions/stationsActions';
 import { RootState } from '../redux/store';
@@ -59,6 +60,7 @@ const openNavigation = (lat: number, lng: number) => {
 };
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const mapRef = useRef<MapView>(null);
 
@@ -188,8 +190,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         return {
           id: String(shop?.id ?? `${shop?.name}-${latitude}-${longitude}`),
-          name: String(shop?.name ?? 'Repair Shop'),
-          location: String(shop?.location ?? shop?.address ?? 'Location unavailable'),
+          name: String(shop?.name ?? t('home.repairShop')),
+          location: String(shop?.location ?? shop?.address ?? t('home.locationUnavailable')),
           latitude,
           longitude,
           servicesOffered: Array.isArray(shop?.servicesOffered) ? shop.servicesOffered : [],
@@ -216,7 +218,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setRepairShops([]);
-    setRepairError('Could not load repair shops from backend.');
+    setRepairError(t('home.couldNotLoadRepairShops'));
     setRepairLoading(false);
   };
 
@@ -224,7 +226,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'We need access to your location to show relevant content.');
+        Alert.alert(t('home.permissionRequired'), t('home.permissionRequiredMessage'));
         setInitialRegion(DEFAULT_REGION);
         setCurrentRegion(DEFAULT_REGION);
         fetchRepairShops();
@@ -337,9 +339,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   if (!hasMapsKey) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.missingKeyTitle}>Google Maps key missing</Text>
+        <Text style={styles.missingKeyTitle}>{t('home.googleMapsKeyMissing')}</Text>
         <Text style={styles.missingKeyText}>
-          Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in .env and rebuild Android.
+          {t('home.googleMapsKeyHint')}
         </Text>
       </View>
     );
@@ -351,10 +353,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.summaryCard}>
         <View>
-          <Text style={styles.summaryLabel}>{serviceType === 'wash' ? 'Nearby Stations' : 'Nearby Repair Shops'}</Text>
+          <Text style={styles.summaryLabel}>{serviceType === 'wash' ? t('home.nearbyStations') : t('home.nearbyRepairShops')}</Text>
           <Text style={styles.summaryValue}>{itemCount}</Text>
           <Text style={styles.summaryHint}>
-            {nearestDistanceKm !== null ? `${nearestDistanceKm.toFixed(1)} km closest` : 'Enable location for distance'}
+            {nearestDistanceKm !== null
+              ? t('home.kmClosest', { km: nearestDistanceKm.toFixed(1) })
+              : t('home.enableLocationForDistance')}
           </Text>
         </View>
         <View style={styles.summaryActions}>
@@ -363,7 +367,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Pressable>
           <Pressable onPress={refreshCurrentList} style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshButtonPressed]}>
             <Text style={styles.refreshButtonText}>
-              {serviceType === 'wash' ? (stationsLoading ? 'Refreshing...' : 'Refresh') : repairLoading ? 'Refreshing...' : 'Refresh'}
+              {serviceType === 'wash' ? (stationsLoading ? t('common.refreshing') : t('common.refresh')) : repairLoading ? t('common.refreshing') : t('common.refresh')}
             </Text>
           </Pressable>
         </View>
@@ -373,10 +377,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.switchInner}>
           <View style={[styles.switchIndicator, serviceType === 'repair' && { transform: [{ translateX: 110 }] }]} />
           <TouchableOpacity style={styles.switchButton} onPress={() => setServiceType('wash')} activeOpacity={0.85}>
-            <Text style={[styles.switchText, serviceType === 'wash' && styles.activeText]}>Wash</Text>
+            <Text style={[styles.switchText, serviceType === 'wash' && styles.activeText]}>{t('home.serviceTypes.wash')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.switchButton} onPress={() => setServiceType('repair')} activeOpacity={0.85}>
-            <Text style={[styles.switchText, serviceType === 'repair' && styles.activeText]}>Repair</Text>
+            <Text style={[styles.switchText, serviceType === 'repair' && styles.activeText]}>{t('home.serviceTypes.repair')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -414,7 +418,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 key={station.id}
                 coordinate={{ latitude: station.latitude, longitude: station.longitude }}
                 title={station.name}
-                description={distance ? `${station.address} - ${distance} km away` : station.address}
+                description={distance ? `${station.address} - ${t('home.kmAway', { km: distance })}` : station.address}
                 onPress={() => handleStationClick(station)}
               >
                 <Image
@@ -461,10 +465,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             );
             const fallbackWaterlessProgram = {
               id: null,
-              name: 'Waterless Mobile Wash',
+              name: t('home.waterlessMobileWash'),
               price: 25,
               programType: 'waterless',
-              description: 'Eco-friendly wash delivered to your location',
+              description: t('home.waterlessDescription'),
             };
             navigation.navigate('Buywash', { selectedProgram: stationWaterlessProgram || fallbackWaterlessProgram });
           }}
@@ -472,15 +476,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.waterlessFABIcon}>
             <Text style={styles.waterlessFABEmoji}>💧</Text>
           </View>
-          <Text style={styles.waterlessFABText}>Waterless Wash</Text>
+          <Text style={styles.waterlessFABText}>{t('home.waterlessWash')}</Text>
         </Pressable>
       )}
 
       <View style={[styles.bottomSheet, sheetExpanded && styles.bottomSheetExpanded]}>
         <Pressable onPress={() => setSheetExpanded(prev => !prev)} style={styles.sheetHandleWrap}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{serviceType === 'wash' ? 'Stations' : 'Repair Shops'}</Text>
-          <Text style={styles.sheetToggle}>{sheetExpanded ? 'Collapse' : 'Expand'}</Text>
+          <Text style={styles.sheetTitle}>{serviceType === 'wash' ? t('home.stations') : t('home.repairShops')}</Text>
+          <Text style={styles.sheetToggle}>{sheetExpanded ? t('home.collapse') : t('home.expand')}</Text>
         </Pressable>
 
         {sheetExpanded && (
@@ -496,14 +500,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.sheetItemInfo}>
                       <Text style={styles.sheetItemTitle} numberOfLines={1}>{station.name}</Text>
                       <Text style={styles.sheetItemAddress} numberOfLines={1}>{station.address}</Text>
-                      <Text style={styles.sheetItemMeta}>{distance ? `${distance} km away` : 'Distance unavailable'}</Text>
+                      <Text style={styles.sheetItemMeta}>{distance ? t('home.kmAway', { km: distance }) : t('home.distanceUnavailable')}</Text>
                     </View>
                     <View style={styles.sheetActions}>
                       <Pressable onPress={() => focusStation(station)} style={styles.focusButton}>
-                        <Text style={styles.focusButtonText}>Focus</Text>
+                        <Text style={styles.focusButtonText}>{t('home.focus')}</Text>
                       </Pressable>
                       <Pressable onPress={() => handleStationClick(station)} style={styles.openButton}>
-                        <Text style={styles.openButtonText}>Open</Text>
+                        <Text style={styles.openButtonText}>{t('home.open')}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -521,14 +525,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <View style={styles.sheetItemInfo}>
                       <Text style={styles.sheetItemTitle} numberOfLines={1}>{shop.name}</Text>
                       <Text style={styles.sheetItemAddress} numberOfLines={1}>{shop.location}</Text>
-                      <Text style={styles.sheetItemMeta}>{distance ? `${distance} km away` : 'Distance unavailable'}</Text>
+                      <Text style={styles.sheetItemMeta}>{distance ? t('home.kmAway', { km: distance }) : t('home.distanceUnavailable')}</Text>
                     </View>
                     <View style={styles.sheetActions}>
                       <Pressable onPress={() => focusRepairShop(shop)} style={styles.focusButton}>
-                        <Text style={styles.focusButtonText}>Focus</Text>
+                        <Text style={styles.focusButtonText}>{t('home.focus')}</Text>
                       </Pressable>
                       <Pressable onPress={() => navigation.navigate('RepairShop', { shop })} style={styles.openButton}>
-                        <Text style={styles.openButtonText}>Open</Text>
+                        <Text style={styles.openButtonText}>{t('home.open')}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -541,44 +545,44 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {serviceType === 'wash' && stationsLoading && (
         <View style={styles.statusCard}>
           <ActivityIndicator size="small" color="#4F46E5" />
-          <Text style={styles.statusText}>Loading stations...</Text>
+          <Text style={styles.statusText}>{t('home.loadingStations')}</Text>
         </View>
       )}
 
       {serviceType === 'repair' && repairLoading && (
         <View style={styles.statusCard}>
           <ActivityIndicator size="small" color="#4F46E5" />
-          <Text style={styles.statusText}>Loading repair shops...</Text>
+          <Text style={styles.statusText}>{t('home.loadingRepairShops')}</Text>
         </View>
       )}
 
       {serviceType === 'wash' && stationsError && !stationsLoading && (
         <View style={styles.statusCard}>
-          <Text style={styles.statusText}>Could not load stations.</Text>
+          <Text style={styles.statusText}>{t('home.couldNotLoadStations')}</Text>
           <Pressable onPress={refreshCurrentList} style={styles.retryButton}>
-            <Text style={styles.retryText}>Try again</Text>
+            <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
           </Pressable>
         </View>
       )}
 
       {serviceType === 'repair' && repairError && !repairLoading && (
         <View style={styles.statusCard}>
-          <Text style={styles.statusText}>{repairError}</Text>
+          <Text style={styles.statusText}>{repairError || t('home.couldNotLoadRepairShops')}</Text>
           <Pressable onPress={refreshCurrentList} style={styles.retryButton}>
-            <Text style={styles.retryText}>Refresh</Text>
+            <Text style={styles.retryText}>{t('common.refresh')}</Text>
           </Pressable>
         </View>
       )}
 
       {serviceType === 'wash' && !stationsLoading && !stationsError && normalizedStations.length === 0 && (
         <View style={styles.statusCard}>
-          <Text style={styles.statusText}>No stations found in this area yet.</Text>
+          <Text style={styles.statusText}>{t('home.noStationsInArea')}</Text>
         </View>
       )}
 
       {serviceType === 'repair' && !repairLoading && repairShops.length === 0 && (
         <View style={styles.statusCard}>
-          <Text style={styles.statusText}>No repair shops found in this area yet.</Text>
+          <Text style={styles.statusText}>{t('home.noRepairShopsInArea')}</Text>
         </View>
       )}
     </View>

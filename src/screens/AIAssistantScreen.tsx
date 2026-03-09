@@ -1,10 +1,11 @@
 import axios from 'axios';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { RootState } from '../redux/store';
 import { Colors, Radius, Spacing } from '../theme/design';
 import { goBackOrHome } from '../utils/navigation';
@@ -16,6 +17,7 @@ interface AIResponse {
 }
 
 const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
+  const { t } = useLanguage();
   const [message, setMessage] = useState('');
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const askAssistant = async () => {
     const trimmed = message.trim();
     if (!trimmed) {
-      Alert.alert('Message required', 'Please enter a question for the AI assistant.');
+      Alert.alert(t('ai.messageRequiredTitle'), t('ai.messageRequiredBody'));
       return;
     }
 
@@ -67,7 +69,7 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
       if (!response || !response.data) {
         throw lastError || new Error(
-          'AI endpoint not reachable. Ensure zcare-ai-python service is running.'
+          t('ai.endpointNotReachable')
         );
       }
 
@@ -78,35 +80,35 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         case 'login_user':
           if (aiResponse.payload) {
             setAnswer(
-              `✅ Login successful!\n\nUser: ${aiResponse.payload.username}\nToken: ${aiResponse.payload.token?.substring(0, 20)}...`
+              `${t('ai.loginSuccessful')}\n\n${t('ai.userLabel')}: ${aiResponse.payload.username}\n${t('ai.tokenLabel')}: ${aiResponse.payload.token?.substring(0, 20)}...`
             );
           } else {
-            setAnswer('Login intent detected, but no credentials provided.');
+            setAnswer(t('ai.loginIntentNoCredentials'));
           }
           break;
 
         case 'book_station':
           if (aiResponse.payload) {
             setAnswer(
-              `✅ Booking intent detected!\n\n${JSON.stringify(aiResponse.payload, null, 2)}\n\nProceed to booking screen?`
+              `${t('ai.bookingIntentDetected')}\n\n${JSON.stringify(aiResponse.payload, null, 2)}\n\n${t('ai.proceedToBookingQuestion')}`
             );
           } else {
-            setAnswer('Booking intent detected, but incomplete information.');
+            setAnswer(t('ai.bookingIntentIncomplete'));
           }
           break;
 
         case 'chat':
         case 'error':
-          setAnswer(aiResponse.text || 'No response from AI');
+          setAnswer(aiResponse.text || t('ai.noResponse'));
           break;
 
         default:
           setAnswer(aiResponse.text || JSON.stringify(aiResponse, null, 2));
       }
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Failed to get AI response';
-      Alert.alert('AI unavailable', errorMsg);
-      setAnswer(`❌ Error: ${errorMsg}`);
+      const errorMsg = error?.response?.data?.detail || error?.response?.data?.message || error?.message || t('ai.failedToGetResponse');
+      Alert.alert(t('ai.unavailableTitle'), errorMsg);
+      setAnswer(`❌ ${t('common.error')}: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -119,27 +121,27 @@ const AIAssistantScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader
-        title="AI Assistant"
-        subtitle="Ask anything about washes, repairs, or car care."
+        title={t('ai.title')}
+        subtitle={t('ai.subtitle')}
         onBack={goBackSafe}
       />
 
       <AppCard>
-        <Text style={styles.label}>Question</Text>
+        <Text style={styles.label}>{t('ai.questionLabel')}</Text>
         <TextInput
           style={styles.input}
           value={message}
           onChangeText={setMessage}
           multiline
-          placeholder="Example: What repair should I do if brakes squeak?"
+          placeholder={t('ai.exampleQuestion')}
           placeholderTextColor="#9CA3AF"
         />
-        <PrimaryButton onPress={askAssistant} label={loading ? 'Thinking...' : 'Ask AI'} loading={loading} />
+        <PrimaryButton onPress={askAssistant} label={loading ? t('ai.thinking') : t('ai.askButton')} loading={loading} />
       </AppCard>
 
       <AppCard>
-        <Text style={styles.label}>Answer</Text>
-        <Text style={styles.answer}>{answer || 'Your AI response will appear here.'}</Text>
+        <Text style={styles.label}>{t('ai.answerLabel')}</Text>
+        <Text style={styles.answer}>{answer || t('ai.responsePlaceholder')}</Text>
       </AppCard>
     </ScrollView>
   );

@@ -7,11 +7,14 @@ import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import { useDispatch, useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
+import { useLanguage } from '../contexts/LanguageContext';
 import { deleteBooking, fetchUserBookings } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
 import { Colors, Spacing } from '../theme/design';
+import { localizeProgramNameFromText } from '../utils/programLocalization';
 
 const CompletedBookingsScreen: React.FC = () => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
   const userState = useSelector((state: RootState) => state.user.user);
@@ -56,21 +59,29 @@ const CompletedBookingsScreen: React.FC = () => {
       );
 
     const statusUpper = String(item.status || (item.executed ? 'FINISHED' : 'PURCHASED')).toUpperCase();
-    const statusLabel = statusUpper.replaceAll('_', ' ');
+    const statusLabel = (() => {
+      if (statusUpper === 'FINISHED') return t('bookings.statuses.finished');
+      if (statusUpper === 'WASHING') return t('bookings.statuses.washing');
+      if (statusUpper === 'QUEUING') return t('bookings.statuses.queuing');
+      if (statusUpper === 'CANCELED') return t('bookings.statuses.canceled');
+      if (statusUpper === 'NOT_PURCHASED') return t('bookings.statuses.notPurchased');
+      if (statusUpper === 'PURCHASED') return t('bookings.statuses.purchased');
+      return statusUpper.replaceAll('_', ' ');
+    })();
 
     const scheduledLabel = item.scheduledTime
       ? new Date(item.scheduledTime).toLocaleString()
-      : 'Not scheduled';
+      : t('bookings.notScheduled');
 
     const completedDate = item.completedAt || item.updatedAt || item.scheduledTime
       ? new Date(item.completedAt || item.updatedAt || item.scheduledTime).toLocaleDateString()
-      : 'Recently';
+      : t('bookings.recently');
 
     const handleDelete = () => {
-      Alert.alert('Delete booking', 'Are you sure you want to delete this completed booking?', [
-        { text: 'No', style: 'cancel' },
+      Alert.alert(t('bookings.deleteTitle'), t('bookings.deleteConfirm'), [
+        { text: t('bookings.cancelNo'), style: 'cancel' },
         {
-          text: 'Yes, delete',
+          text: t('bookings.deleteYes'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -80,7 +91,7 @@ const CompletedBookingsScreen: React.FC = () => {
                 await dispatch(fetchUserBookings(userState.token));
               }
             } catch (error: any) {
-              Alert.alert('Delete failed', error?.response?.data?.message || error?.message || 'Try again later');
+              Alert.alert(t('bookings.deleteFailed'), error?.response?.data?.message || error?.message || t('bookings.tryAgainLater'));
             } finally {
               setProcessingId(null);
             }
@@ -92,19 +103,19 @@ const CompletedBookingsScreen: React.FC = () => {
     return (
       <AppCard style={styles.bookingCard}>
         <View style={styles.successHeader}>
-          <Text style={styles.successBadge}>✓ COMPLETED</Text>
+          <Text style={styles.successBadge}>{t('bookings.completedBadge')}</Text>
           <Text style={styles.completedDate}>{completedDate}</Text>
         </View>
         <Text style={styles.cardTitle}>
-          {isRepairTicket ? 'Repair Ticket' : 'Wash Ticket'}
+          {isRepairTicket ? t('bookings.ticketRepair') : t('bookings.ticketWash')}
         </Text>
         <View style={styles.qrContainer}>
-          <QRCode value={item.qr_code || item.qrCode || 'No Data'} size={180} backgroundColor="white" />
+          <QRCode value={item.qr_code || item.qrCode || t('bookings.noData')} size={180} backgroundColor="white" />
         </View>
         <View style={styles.detailsContainer}>
           <View style={styles.detailRow}>
             <Text style={styles.label}>
-              {isRepairTicket ? 'Repair station' : 'Station'}
+              {isRepairTicket ? t('bookings.repairStation') : t('bookings.station')}
             </Text>
             <Text style={styles.value}>
               {isRepairTicket
@@ -113,29 +124,29 @@ const CompletedBookingsScreen: React.FC = () => {
             </Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Vehicle registration</Text>
+            <Text style={styles.label}>{t('bookings.vehicleRegistration')}</Text>
             <Text style={styles.value}>{item.carRegistrationPlate || '-'}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Scheduled</Text>
+            <Text style={styles.label}>{t('bookings.scheduled')}</Text>
             <Text style={styles.value}>{scheduledLabel}</Text>
           </View>
           {isRepairTicket && (
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Repair</Text>
+              <Text style={styles.label}>{t('bookings.repair')}</Text>
               <Text style={styles.value}>{item.repairItemName || '-'}</Text>
             </View>
           )}
           {!isRepairTicket && (
             <>
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Program</Text>
-                <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
+                <Text style={styles.label}>{t('bookings.program')}</Text>
+                <Text style={styles.value}>{localizeProgramNameFromText(item.washingProgramName || item.washingProgramId, t)}</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Wash Type</Text>
+                <Text style={styles.label}>{t('bookings.washType')}</Text>
                 <Text style={styles.value}>
-                  {isWaterlessTicket ? '💧 Waterless Mobile' : '🏪 Regular'}
+                  {isWaterlessTicket ? t('bookings.washTypeWaterlessMobile') : t('bookings.washTypeRegular')}
                 </Text>
               </View>
             </>
@@ -143,20 +154,20 @@ const CompletedBookingsScreen: React.FC = () => {
           {isWaterlessTicket && item.deliveryAddress && (
             <>
               <View style={styles.detailRow}>
-                <Text style={styles.label}>Delivery Address</Text>
+                <Text style={styles.label}>{t('bookings.deliveryAddress')}</Text>
                 <Text style={[styles.value, styles.multiLine]}>{item.deliveryAddress}</Text>
               </View>
               {item.deliveryPhone && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.label}>Contact Phone</Text>
+                  <Text style={styles.label}>{t('bookings.contactPhone')}</Text>
                   <Text style={styles.value}>{item.deliveryPhone}</Text>
                 </View>
               )}
             </>
           )}
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Status</Text>
-            <Text style={[styles.value, { color: '#16A34A' }]}>COMPLETED</Text>
+            <Text style={styles.label}>{t('bookings.status')}</Text>
+            <Text style={[styles.value, { color: '#16A34A' }]}>{statusLabel}</Text>
           </View>
           <TouchableOpacity 
             style={[styles.actionBtn, styles.actionDanger]} 
@@ -166,7 +177,7 @@ const CompletedBookingsScreen: React.FC = () => {
             {processingId === item.id ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.actionText}>Delete Record</Text>
+              <Text style={styles.actionText}>{t('bookings.deleteRecord')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -194,7 +205,7 @@ const CompletedBookingsScreen: React.FC = () => {
   if (!completedBookings.length) {
     return (
       <View style={styles.center}>
-        <Text style={styles.message}>No completed bookings yet</Text>
+        <Text style={styles.message}>{t('bookings.noCompletedBookings')}</Text>
       </View>
     );
   }
@@ -203,8 +214,8 @@ const CompletedBookingsScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerWrap}>
         <AppHeader 
-          title="Completed Bookings" 
-          subtitle={`${completedBookings.length} completed`} 
+          title={t('bookings.completedBookingsTitle')} 
+          subtitle={t('bookings.completedSubtitle', { count: completedBookings.length })} 
         />
       </View>
       <FlatList

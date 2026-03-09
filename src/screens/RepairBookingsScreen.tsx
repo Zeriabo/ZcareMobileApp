@@ -1,28 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Alert,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
-import { Colors, Radius, Spacing } from '../theme/design';
-import { RootState } from '../redux/store';
-import { RootStackParamList } from '../redux/types/stackParams';
+import { useLanguage } from '../contexts/LanguageContext';
 import {
-  fetchRepairBookings,
-  updateRepairBookingStatus,
-  cancelRepairBooking,
+    cancelRepairBooking,
+    fetchRepairBookings,
+    updateRepairBookingStatus,
 } from '../redux/actions/repairActions';
+import { RootState } from '../redux/store';
 import { RepairBooking } from '../redux/types/repairTypes';
+import { Colors, Radius, Spacing } from '../theme/design';
 import { displayLocalNotification } from '../utils/notifications';
 
 type Props = {
@@ -30,6 +29,7 @@ type Props = {
 };
 
 const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
+  const { t, language } = useLanguage();
   const dispatch = useDispatch<any>();
   const bookings = useSelector((state: RootState) => (state as any).repair?.bookings ?? []);
   const loading = useSelector((state: RootState) => (state as any).repair?.loading ?? false);
@@ -54,13 +54,25 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleStatusUpdate = async (bookingId: number, newStatus: string) => {
+    const localizedStatus =
+      newStatus === 'PENDING'
+        ? t('bookings.statuses.pending')
+        : newStatus === 'CONFIRMED'
+          ? t('bookings.statuses.confirmed')
+          : newStatus === 'IN_PROGRESS'
+            ? t('bookings.statuses.inProgress')
+            : newStatus === 'COMPLETED'
+              ? t('bookings.statuses.completed')
+              : newStatus === 'CANCELLED' || newStatus === 'CANCELED'
+                ? t('bookings.statuses.cancelled')
+                : newStatus;
     Alert.alert(
-      'Confirm Status Change',
-      `Change repair booking status to ${newStatus}?`,
+      t('repair.confirmStatusChange'),
+      t('repair.changeStatusTo', { status: localizedStatus }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Confirm',
+          text: t('common.confirm'),
           onPress: async () => {
             try {
               setUpdatingId(bookingId);
@@ -68,11 +80,11 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
                 updateRepairBookingStatus(bookingId, newStatus) as any
               );
               displayLocalNotification(
-                'Status Updated',
-                `Repair booking status changed to ${newStatus}`
+                t('repair.statusUpdated'),
+                t('repair.statusChangedTo', { status: localizedStatus })
               );
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to update status');
+              Alert.alert(t('common.error'), err?.message || t('repair.failedToUpdateStatus'));
             } finally {
               setUpdatingId(null);
             }
@@ -85,22 +97,22 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleCancel = async (bookingId: number) => {
     Alert.alert(
-      'Cancel Booking',
-      'Are you sure you want to cancel this repair booking?',
+      t('repair.cancelBookingTitle'),
+      t('repair.cancelRepairBookingConfirm'),
       [
-        { text: 'No', style: 'cancel' },
+        { text: t('bookings.cancelNo'), style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: t('repair.yesCancel'),
           onPress: async () => {
             try {
               setUpdatingId(bookingId);
               await dispatch(cancelRepairBooking(bookingId) as any);
               displayLocalNotification(
-                'Booking Cancelled',
-                'Your repair booking has been cancelled'
+                t('repair.bookingCancelledTitle'),
+                t('repair.bookingCancelledMessage')
               );
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to cancel booking');
+              Alert.alert(t('common.error'), err?.message || t('repair.failedToCancelBooking'));
             } finally {
               setUpdatingId(null);
             }
@@ -146,7 +158,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
 
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleDateString(language === 'fi' ? 'fi-FI' : language === 'ar' ? 'ar' : 'en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -161,10 +173,10 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
   if (loading && bookings.length === 0) {
     return (
       <View style={styles.container}>
-        <AppHeader title="Repair Bookings" />
+        <AppHeader title={t('repair.repairBookingsTitle')} />
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading bookings...</Text>
+          <Text style={styles.loadingText}>{t('repair.loadingBookings')}</Text>
         </View>
       </View>
     );
@@ -176,7 +188,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <AppHeader title="Repair Bookings" />
+      <AppHeader title={t('repair.repairBookingsTitle')} />
 
       {error && (
         <AppCard style={styles.errorCard}>
@@ -186,12 +198,12 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
 
       {bookings.length === 0 ? (
         <AppCard>
-          <Text style={styles.emptyText}>No repair bookings yet</Text>
+          <Text style={styles.emptyText}>{t('repair.noRepairBookingsYet')}</Text>
           <Text style={styles.emptySubtext}>
-            Schedule your first repair to get started
+            {t('repair.scheduleFirstRepair')}
           </Text>
           <PrimaryButton
-            label="Browse Repair Shops"
+            label={t('repair.browseRepairShops')}
             onPress={() => navigation.navigate('RepairShop' as any)}
           />
         </AppCard>
@@ -203,7 +215,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.vehiclePlate}>
                   {booking.vehicleRegistrationNumber}
                 </Text>
-                <Text style={styles.shopId}>Shop ID: {booking.repairShopId}</Text>
+                <Text style={styles.shopId}>{t('repair.shopId')}: {booking.repairShopId}</Text>
               </View>
               <View
                 style={[
@@ -220,7 +232,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
             )}
 
             <View style={styles.dateRow}>
-              <Text style={styles.dateLabel}>Scheduled:</Text>
+              <Text style={styles.dateLabel}>{t('bookings.scheduled')}:</Text>
               <Text style={styles.dateValue}>
                 {formatDate(booking.scheduledDate)}
               </Text>
@@ -228,7 +240,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
 
             {booking.completedAt && (
               <View style={styles.dateRow}>
-                <Text style={styles.dateLabel}>Completed:</Text>
+                <Text style={styles.dateLabel}>{t('bookings.completed')}:</Text>
                 <Text style={styles.dateValue}>
                   {formatDate(booking.completedAt)}
                 </Text>
@@ -237,7 +249,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.createdRow}>
               <Text style={styles.createdText}>
-                Created: {formatDate(booking.createdAt || '')}
+                {t('repair.created')}: {formatDate(booking.createdAt || '')}
               </Text>
             </View>
 
@@ -262,7 +274,18 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
                           <Text style={styles.actionButtonText}>
-                            ✓ Mark {nextStatus}
+                            ✓ {t('repair.markStatus', {
+                              status:
+                                nextStatus === 'PENDING'
+                                  ? t('bookings.statuses.pending')
+                                  : nextStatus === 'CONFIRMED'
+                                    ? t('bookings.statuses.confirmed')
+                                    : nextStatus === 'IN_PROGRESS'
+                                      ? t('bookings.statuses.inProgress')
+                                      : nextStatus === 'COMPLETED'
+                                        ? t('bookings.statuses.completed')
+                                        : nextStatus,
+                            })}
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -281,7 +304,7 @@ const RepairBookingsScreen: React.FC<Props> = ({ navigation }) => {
                   {updatingId === booking.id ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.actionButtonText}>✕ Cancel Booking</Text>
+                    <Text style={styles.actionButtonText}>✕ {t('bookings.cancel')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

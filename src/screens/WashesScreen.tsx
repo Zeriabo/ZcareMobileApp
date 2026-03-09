@@ -1,12 +1,14 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Ionicons from '@react-native-vector-icons/ionicons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { fetchWashesBooked } from '../redux/actions/WashesActions';
 import { RootState } from '../redux/store';
 import { Station } from '../redux/types/stationsActionTypes';
 import { Wash } from '../redux/types/washesActionTypes';
+import { localizeProgramNameFromText } from '../utils/programLocalization';
 
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
 }
 
 const WashesScreen: React.FC<Props> = ({route, navigation}) => {
+  const { t } = useLanguage();
   const cars = useSelector((state: RootState) => state.cars.cars);
   const carWashes = useSelector((state: RootState) => state.washes.washes);
   const washesLoading = useSelector((state: RootState) => state.washes.loading);
@@ -29,7 +32,7 @@ const WashesScreen: React.FC<Props> = ({route, navigation}) => {
 
   return (
     <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Select a Car:</Text>
+      <Text style={styles.title}>{t('washes.selectCar')}</Text>
       <View style={styles.carList}>
         {cars.map((car: any) => (
           <TouchableOpacity
@@ -48,26 +51,26 @@ const WashesScreen: React.FC<Props> = ({route, navigation}) => {
         {washesLoading ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator size="small" color="#4F46E5" />
-            <Text style={styles.helperText}>Loading washes...</Text>
+            <Text style={styles.helperText}>{t('washes.loadingWashes')}</Text>
           </View>
         ) : washesError ? (
           <Text style={styles.helperText}>{washesError}</Text>
         ) : carWashes && carWashes.length > 0 ? (
           carWashes.map((wash: Wash) => (
             <View key={wash.id} style={styles.washItem}>
-              <Text style={styles.washTitle}>Wash Details:</Text>
-              <Text>Wash ID: {wash.id}</Text>
-              <Text>Car: {(wash.car as any)?.registerationPlate || (wash.car as any)?.registrationPlate}</Text>
-              <Text>Station: {wash.station?.name}</Text>
-              <Text>Program: {wash.washingProgram?.programType}</Text>
+              <Text style={styles.washTitle}>{t('washes.washDetails')}</Text>
+              <Text>{t('washes.washId')}: {wash.id}</Text>
+              <Text>{t('checkout.vehicle')}: {(wash.car as any)?.registerationPlate || (wash.car as any)?.registrationPlate}</Text>
+              <Text>{t('bookings.station')}: {wash.station?.name}</Text>
+              <Text>{t('bookings.program')}: {localizeProgramNameFromText(wash.washingProgram?.programType, t)}</Text>
               <Text>
-                Description: {wash.washingProgram?.description}
+                {t('repair.description')}: {wash.washingProgram?.description || '-'}
               </Text>
             </View>
           ))
         ) : (
           <Text style={styles.helperText}>
-            {selectedCarId ? 'No washes available for the selected car.' : 'Choose a car to see wash history.'}
+            {selectedCarId ? t('washes.noWashesForSelectedCar') : t('washes.chooseCarToSeeHistory')}
           </Text>
         )}
       </View>

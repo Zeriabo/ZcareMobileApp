@@ -18,13 +18,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { createBooking } from '../redux/actions/BookingActions';
 import { goBackOrHome } from '../utils/navigation';
 import { getPaymentApiBases, getSaveCardPaths } from '../utils/paymentApi';
+import { localizeWashProgramName } from '../utils/programLocalization';
 import { clearSavedCards, getSavedCards, getStripeCustomerId, saveSavedCards, saveStripeCustomerId } from '../utils/storage';
 import BackButton from './ui/BackButton';
 
 const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const { confirmPayment, confirmSetupIntent } = useStripe();
   const dispatch = useDispatch<any>();
 
@@ -147,7 +150,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         throw e;
       }
     }
-    throw lastError || new Error('No compatible endpoint found');
+    throw lastError || new Error(t('checkout.noCompatibleEndpoint'));
   };
 
   const setDefaultSavedCard = async (paymentMethodId: string) => {
@@ -226,7 +229,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       token: user?.token,
       userId: user?.id,
       customerId,
-      name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Customer',
+      name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || t('checkout.customerFallback'),
       email: user?.email || '',
     };
 
@@ -258,7 +261,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
       null;
 
     if (!setupClientSecret) {
-      throw new Error('Setup intent did not return a client secret');
+      throw new Error(t('checkout.setupIntentMissingClientSecret'));
     }
 
     if (nextCustomerId && nextCustomerId !== customerId) {
@@ -274,7 +277,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     });
 
     if (setupResult?.error) {
-      throw new Error(setupResult.error.message || 'Could not save card');
+      throw new Error(setupResult.error.message || t('checkout.couldNotSaveCard'));
     }
 
     const effectiveCustomerId = nextCustomerId || customerId || '';
@@ -285,14 +288,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
   // Helper to show the car selection menu
   const showVehiclePicker = () => {
-    const carOptions = cars.map((car: any) => `${car.manufacture} (${car.registerationPlate || 'No Plate'})`);
+    const carOptions = cars.map((car: any) => `${car.manufacture} (${car.registerationPlate || t('checkout.noPlate')})`);
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', ...carOptions],
+          options: [t('common.cancel'), ...carOptions],
           cancelButtonIndex: 0,
-          title: 'Select Vehicle',
+          title: t('checkout.selectVehicle'),
         },
         (buttonIndex) => {
           if (buttonIndex > 0) {
@@ -304,14 +307,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     }
 
     Alert.alert(
-      'Select Vehicle',
+      t('checkout.selectVehicle'),
       undefined,
       [
         ...cars.map((car: any) => ({
-          text: `${car.manufacture} (${car.registerationPlate || 'No Plate'})`,
+          text: `${car.manufacture} (${car.registerationPlate || t('checkout.noPlate')})`,
           onPress: () => setSelectedCar(car.carId),
         })),
-        { text: 'Cancel', style: 'cancel' as const },
+        { text: t('common.cancel'), style: 'cancel' as const },
       ],
       { cancelable: true }
     );
@@ -334,9 +337,9 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
 
   const handlePayment = async () => {
     setPaymentError(null);
-    if (!selectedCar) return showError('Please select a car');
+    if (!selectedCar) return showError(t('checkout.selectCarError'));
     if (!selectedSavedCardId && !cardDetails?.complete) {
-      return showError('Please enter valid card details or choose a saved card');
+      return showError(t('checkout.enterValidCardOrSaved'));
     }
     
     const today = new Date();
@@ -344,11 +347,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
     const selectedDateOnly = new Date(selectedDate);
     selectedDateOnly.setHours(0, 0, 0, 0);
     if (selectedDateOnly.getTime() < today.getTime()) {
-        return showError('Please select a future date');
+      return showError(t('checkout.selectFutureDate'));
     }
     
     const clientSecret = resolveClientSecret(paymentIntent);
-    if (!clientSecret) return showError('Payment session expired. Please go back and try again.');
+    if (!clientSecret) return showError(t('checkout.paymentSessionExpired'));
 
     setLoading(true);
     try {
@@ -358,11 +361,11 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         try {
           await setupCardForFuture();
           cardSavedDuringSetup = true;
-          setSaveCardStatus('Card saved for next time.');
+          setSaveCardStatus(t('checkout.cardSavedForNextTime'));
         } catch (saveError: any) {
-          const msg = saveError?.response?.data?.message || saveError?.message || 'Could not save card.';
-          setSaveCardStatus(`Could not save card: ${msg}`);
-          showError(`${msg}. Continuing with payment.`);
+          const msg = saveError?.response?.data?.message || saveError?.message || t('checkout.couldNotSaveCard');
+          setSaveCardStatus(`${t('checkout.couldNotSaveCard')}: ${msg}`);
+          showError(`${msg}. ${t('checkout.continuingWithPayment')}`);
         }
       }
 
@@ -371,14 +374,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             paymentMethodType: 'Card',
             paymentMethodData: {
               paymentMethodId: selectedSavedCardId,
-              billingDetails: { name: user?.name ?? 'Customer' },
+              billingDetails: { name: user?.name ?? t('checkout.customerFallback') },
             },
           })
         : await (confirmPayment as any)(clientSecret, {
             paymentMethodType: 'Card',
             paymentMethodData: {
               card: cardDetails,
-              billingDetails: { name: user?.name ?? 'Customer' },
+              billingDetails: { name: user?.name ?? t('checkout.customerFallback') },
             },
           });
 
@@ -386,7 +389,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         const stripeMessage =
           result.error.localizedMessage ||
           result.error.message ||
-          'Payment confirmation failed.';
+          t('checkout.paymentConfirmationFailed');
         console.log('[payment] Stripe confirm error:', result.error);
         showError(stripeMessage);
         return;
@@ -396,14 +399,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         if (saveCard && !cardSavedDuringSetup) {
           try {
             await persistSavedCardAfterPayment(result.paymentIntent);
-            setSaveCardStatus('Card saved for next time.');
+            setSaveCardStatus(t('checkout.cardSavedForNextTime'));
           } catch (saveError: any) {
             const msg =
               saveError?.response?.data?.message ||
               (typeof saveError?.response?.data === 'string' ? saveError.response.data : null) ||
               saveError?.message ||
-              'Could not save card.';
-            setSaveCardStatus(`Could not save card: ${msg}`);
+              t('checkout.couldNotSaveCard');
+            setSaveCardStatus(`${t('checkout.couldNotSaveCard')}: ${msg}`);
             showError(msg);
           }
         }
@@ -436,19 +439,19 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           const isWaterless = String(washType).toLowerCase() === 'waterless';
 
           if (!selectedCar) {
-            showError('Please select a car.');
+            showError(t('checkout.selectCarError'));
             return;
           }
           if (!isWaterless && !stationId) {
-            showError('Please select a station before booking.');
+            showError(t('checkout.selectStationBeforeBooking'));
             return;
           }
           if (!isWaterless && !route.params?.program?.id) {
-            showError('Please select a valid washing program.');
+            showError(t('checkout.selectValidProgram'));
             return;
           }
           if (isWaterless && !route.params?.deliveryAddress) {
-            showError('Delivery address is required for waterless wash.');
+            showError(t('checkout.deliveryAddressRequiredWaterless'));
             return;
           }
           
@@ -476,12 +479,12 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         if (qrCode) {
           navigation.replace('QrScreen', { qrCode });
         } else {
-          showError('Payment succeeded but booking failed.');
+          showError(t('checkout.paymentSucceededBookingFailed'));
         }
       } else {
         const status = result?.paymentIntent?.status || 'unknown';
         console.log('[payment] Unexpected payment intent status:', status, result?.paymentIntent);
-        showError(`Transaction not completed (${status}).`);
+        showError(t('checkout.transactionNotCompleted', { status }));
       }
     } catch (error: any) {
       const backendMessage =
@@ -491,7 +494,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
         error?.response?.data?.message ||
         (typeof error?.response?.data === 'string' ? error.response.data : null) ||
         error?.message ||
-        'Payment error occurred.';
+        t('checkout.paymentErrorOccurred');
       console.log('[payment] handlePayment catch:', {
         message: error?.message,
         status: error?.response?.status,
@@ -510,13 +513,13 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
           <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
               <BackButton onPress={() => goBackOrHome(navigation)} />
-              <Text style={styles.headerTitle}>Checkout</Text>
+              <Text style={styles.headerTitle}>{t('checkout.title')}</Text>
               <View style={{ width: 36 }} />
             </View>
 
             <View style={styles.programCard}>
-              <Text style={styles.headerSubtitle}>{isRepairCheckout ? 'Selected Service' : 'Selected Program'}</Text>
-              <Text style={styles.programName}>{route.params?.program?.name || (isRepairCheckout ? 'Repair Service' : 'Wash Program')}</Text>
+              <Text style={styles.headerSubtitle}>{isRepairCheckout ? t('checkout.selectedService') : t('checkout.selectedProgram')}</Text>
+              <Text style={styles.programName}>{route.params?.program ? localizeWashProgramName(route.params.program, t) : (isRepairCheckout ? t('checkout.repairService') : t('checkout.washProgram'))}</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.currency}>€</Text>
                 <Text style={styles.priceText}>{Number(route.params?.program?.price || 0).toFixed(2)}</Text>
@@ -529,7 +532,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             ) : null}
 
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionLabel}>Booking Details</Text>
+              <Text style={styles.sectionLabel}>{t('checkout.bookingDetails')}</Text>
 
               <TouchableOpacity
                 style={styles.inputRow}
@@ -539,7 +542,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.inputLabel}>Date</Text>
+                <Text style={styles.inputLabel}>{t('bookings.date')}</Text>
                 <Text style={styles.inputValue}>{formatDateTime(selectedDate)}</Text>
               </TouchableOpacity>
 
@@ -551,41 +554,41 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.inputLabel}>Time</Text>
+                <Text style={styles.inputLabel}>{t('bookings.time')}</Text>
                 <Text style={styles.inputValue}>
                   {selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.inputRow} onPress={showVehiclePicker} activeOpacity={0.8}>
-                <Text style={styles.inputLabel}>Vehicle</Text>
+                <Text style={styles.inputLabel}>{t('checkout.vehicle')}</Text>
                 <Text style={[styles.inputValue, !selectedCar && { color: '#8E8E93' }]}>
                   {selectedCar
-                    ? `${cars.find((c: any) => c.carId === selectedCar)?.manufacture || 'Car'} (${cars.find((c: any) => c.carId === selectedCar)?.registerationPlate || 'No Plate'})`
-                    : 'Select Car'}
+                    ? `${cars.find((c: any) => c.carId === selectedCar)?.manufacture || t('checkout.carFallback')} (${cars.find((c: any) => c.carId === selectedCar)?.registerationPlate || t('checkout.noPlate')})`
+                    : t('cars.selectCar')}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionLabel}>Payment Card</Text>
+              <Text style={styles.sectionLabel}>{t('checkout.paymentCard')}</Text>
               <TouchableOpacity
                 style={styles.inputRow}
                 onPress={() => setSaveCard(prev => !prev)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.inputLabel}>Save this card for next time</Text>
-                <Text style={styles.inputValue}>{saveCard ? 'ON' : 'OFF'}</Text>
+                <Text style={styles.inputLabel}>{t('checkout.saveCardNextTime')}</Text>
+                <Text style={styles.inputValue}>{saveCard ? t('checkout.on') : t('checkout.off')}</Text>
               </TouchableOpacity>
               <CardForm
                 style={styles.stripeCard}
                 onFormComplete={(details: any) => setCardDetails(details)}
               />
               {loadingCards ? (
-                <Text style={styles.savedCardHint}>Loading saved cards...</Text>
+                <Text style={styles.savedCardHint}>{t('checkout.loadingSavedCards')}</Text>
               ) : savedCards.length > 0 ? (
                 <View style={styles.savedCardsWrap}>
-                  <Text style={styles.savedCardsTitle}>Saved cards</Text>
+                  <Text style={styles.savedCardsTitle}>{t('payment.savedCards')}</Text>
                   {savedCards.map((card: any) => {
                     const cardId = cardIdOf(card) || `${card.last4}`;
                     const selected = cardId === selectedSavedCardId;
@@ -597,7 +600,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                           style={{ flex: 1 }}
                         >
                           <Text style={styles.savedCardItem}>
-                            {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? '(default)' : ''}
+                            {String(card.brand || '').toUpperCase()} •••• {card.last4} {card.isDefault ? `(${t('checkout.default')})` : ''}
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -605,14 +608,14 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                             try {
                               await setDefaultSavedCard(cardId);
                               await fetchSavedCards(customerId || '');
-                              setSaveCardStatus('Default card updated.');
+                              setSaveCardStatus(t('checkout.defaultCardUpdated'));
                             } catch (e: any) {
-                              showError(e?.response?.data?.message || e?.message || 'Could not set default card.');
+                              showError(e?.response?.data?.message || e?.message || t('checkout.couldNotSetDefaultCard'));
                             }
                           }}
                           style={styles.savedCardAction}
                         >
-                          <Text style={styles.savedCardActionText}>Default</Text>
+                          <Text style={styles.savedCardActionText}>{t('checkout.default')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={async () => {
@@ -623,21 +626,21 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
                               if (savedCards.length <= 1) {
                                 await clearSavedCards();
                               }
-                              setSaveCardStatus('Card removed.');
+                              setSaveCardStatus(t('checkout.cardRemoved'));
                             } catch (e: any) {
-                              showError(e?.response?.data?.message || e?.message || 'Could not delete card.');
+                              showError(e?.response?.data?.message || e?.message || t('checkout.couldNotDeleteCard'));
                             }
                           }}
                           style={[styles.savedCardAction, styles.savedCardDanger]}
                         >
-                          <Text style={[styles.savedCardActionText, styles.savedCardDangerText]}>Delete</Text>
+                          <Text style={[styles.savedCardActionText, styles.savedCardDangerText]}>{t('common.delete')}</Text>
                         </TouchableOpacity>
                       </View>
                     );
                   })}
                 </View>
               ) : (
-                <Text style={styles.savedCardHint}>No saved cards yet.</Text>
+                <Text style={styles.savedCardHint}>{t('checkout.noSavedCardsYet')}</Text>
               )}
               {saveCardStatus ? <Text style={styles.savedCardStatus}>{saveCardStatus}</Text> : null}
             </View>
@@ -679,7 +682,7 @@ const CheckoutForm: React.FC<any> = ({ route, navigation }) => {
             onPress={handlePayment}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.payButtonText}>Pay Now</Text>}
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.payButtonText}>{t('payment.payNow')}</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

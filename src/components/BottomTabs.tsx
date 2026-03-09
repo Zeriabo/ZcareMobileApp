@@ -4,14 +4,16 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { useSelector } from 'react-redux';
 
+import { useLanguage } from '../contexts/LanguageContext';
+import { RootState } from '../redux/store';
 import HomeScreen from '../screens/HomeScreen';
 import BookingsScreen from '../screens/MyBookingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import { RootState } from '../redux/store';
 
 const Tab = createBottomTabNavigator();
 
 export default function BottomTabs() {
+  const { t } = useLanguage();
   const navigation = useNavigation<any>();
   const user = useSelector((state: RootState) => state.user.user);
   const isAuthenticated = Boolean(user?.token);
@@ -54,11 +56,20 @@ export default function BottomTabs() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={HomeScreen} />
-      <Tab.Screen name="Bookings" component={BookingsScreen} />
+      <Tab.Screen 
+        name="Dashboard" 
+        component={HomeScreen}
+        options={{ title: t('navigation.home') }}
+      />
+      <Tab.Screen 
+        name="Bookings" 
+        component={BookingsScreen}
+        options={{ title: t('navigation.bookings') }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
+        options={{ title: t('navigation.profile') }}
         listeners={{
           tabPress: e => {
             if (!isAuthenticated) {

@@ -14,9 +14,11 @@ import {
 import { Button, HelperText, RadioButton, TextInput } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from '../components/ui/BackButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { create_paymentIntent } from '../redux/actions/BuyActions';
 import { resolveMediaUrl } from '../utils/media';
 import { goBackOrHome } from '../utils/navigation';
+import { localizeWashProgramDescription, localizeWashProgramName } from '../utils/programLocalization';
 import { Validators } from '../utils/validators';
 
 type WashType = 'regular' | 'waterless';
@@ -27,6 +29,7 @@ type Props = {
 };
 
 const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const { user } = useSelector((state: any) => state.user);
   const selectedProgram = route.params.selectedProgram;
@@ -65,27 +68,27 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
     let isValid = true;
     
     if (!Validators.required(deliveryAddress)) {
-      setAddressError('Delivery address is required');
+      setAddressError(t('buywash.deliveryAddressRequired'));
       isValid = false;
     } else if (!Validators.minLength(deliveryAddress, 10)) {
-      setAddressError('Please provide a complete address');
+      setAddressError(t('buywash.provideCompleteAddress'));
       isValid = false;
     } else {
       setAddressError('');
     }
     
     if (!Validators.required(deliveryPhone)) {
-      setPhoneError('Phone number is required');
+      setPhoneError(t('buywash.phoneRequired'));
       isValid = false;
     } else if (!Validators.phone(deliveryPhone)) {
-      setPhoneError('Please provide a valid phone number');
+      setPhoneError(t('buywash.phoneInvalid'));
       isValid = false;
     } else {
       setPhoneError('');
     }
     
     if (!deliveryLatitude || !deliveryLongitude) {
-      setLocationError('Please select delivery location on map');
+      setLocationError(t('buywash.selectDeliveryLocation'));
       isValid = false;
     } else {
       setLocationError('');
@@ -99,7 +102,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Location permission is required to auto-fill your current location');
+        Alert.alert(t('buywash.permissionNeeded'), t('buywash.locationPermissionRequired'));
         setLoadingLocation(false);
         return;
       }
@@ -127,7 +130,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
         setAddressError('');
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not get your current location');
+      Alert.alert(t('common.error'), t('buywash.couldNotGetLocation'));
     } finally {
       setLoadingLocation(false);
     }
@@ -160,13 +163,13 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const handlePaymentMethodSelection = async (method: 'card' | 'apple_pay' | 'google_pay') => {
         setCheckoutError(null);
         if (!validateDeliveryFields()) {
-          setCheckoutError('Please fill in all required delivery information.');
+          setCheckoutError(t('buywash.fillRequiredDeliveryInfo'));
           return;
         }
     const isDeliveryType = washType !== 'regular';
     const selectedProgramId = Number(selectedProgram?.id);
     if (!isDeliveryType && (!Number.isFinite(selectedProgramId) || selectedProgramId <= 0)) {
-      setCheckoutError('Invalid wash program selected. Please re-open the station and choose a valid program.');
+      setCheckoutError(t('buywash.invalidProgramSelected'));
       return;
     }
 
@@ -197,7 +200,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
           : typeof error?.response?.data === 'string'
             ? error.response.data
             : error?.details?.message || error?.response?.data?.message || error?.message;
-      setCheckoutError(backendMessage || 'We could not initialize payment. Please try again.');
+      setCheckoutError(backendMessage || t('buywash.couldNotInitializePayment'));
     } finally {
       setInitializingCheckout(false);
     }
@@ -215,7 +218,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
           <BackButton onPress={() => goBackOrHome(navigation)} color="#007AFF" backgroundColor="#EFF6FF" />
 
 
-          <Text style={styles.headerTitle}>{program.name}</Text>
+          <Text style={styles.headerTitle}>{localizeWashProgramName(program, t)}</Text>
         </View>
 <View style={styles.card}>
   {checkoutError ? (
@@ -262,12 +265,12 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 </Text>
 
 <Text style={styles.description}>
-  {program.description}
+  {localizeWashProgramDescription(program, t)}
 </Text>
 
         {/* Wash Type Selection */}
         <View style={styles.washTypeSection}>
-          <Text style={styles.sectionTitle}>Select Wash Type</Text>
+          <Text style={styles.sectionTitle}>{t('buywash.selectWashType')}</Text>
           
           <TouchableOpacity 
             style={[styles.washTypeOption, washType === 'regular' && styles.washTypeSelected]}
@@ -279,8 +282,8 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={() => setWashType('regular')}
             />
             <View style={styles.washTypeInfo}>
-              <Text style={styles.washTypeName}>Regular Wash</Text>
-              <Text style={styles.washTypeDesc}>At station location</Text>
+              <Text style={styles.washTypeName}>{t('buywash.regularWash')}</Text>
+              <Text style={styles.washTypeDesc}>{t('buywash.atStationLocation')}</Text>
             </View>
             <Text style={styles.washTypePrice}>€{Number(program.price || 0).toFixed(2)}</Text>
           </TouchableOpacity>
@@ -295,8 +298,8 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={() => setWashType('waterless')}
             />
             <View style={styles.washTypeInfo}>
-              <Text style={styles.washTypeName}>Waterless Mobile Wash 🚗</Text>
-              <Text style={styles.washTypeDesc}>Eco-friendly • We come to your location</Text>
+              <Text style={styles.washTypeName}>{t('buywash.waterlessMobileWash')}</Text>
+              <Text style={styles.washTypeDesc}>{t('buywash.waterlessDescription')}</Text>
             </View>
             <Text style={styles.washTypePrice}>€{getWashTypePrice().toFixed(2)}</Text>
           </TouchableOpacity>
@@ -305,11 +308,11 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Delivery Information (shown for waterless/delivery wash) */}
         {washType !== 'regular' && (
           <View style={styles.deliverySection}>
-            <Text style={styles.sectionTitle}>Delivery Information</Text>
+            <Text style={styles.sectionTitle}>{t('buywash.deliveryInformation')}</Text>
             
             <TextInput
               mode="outlined"
-              label="Delivery Address *"
+              label={t('buywash.deliveryAddressRequiredLabel')}
               value={deliveryAddress}
               onChangeText={(text) => {
                 setDeliveryAddress(text);
@@ -318,7 +321,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
                 }
               }}
               error={!!addressError}
-              placeholder="Street, City, Postal Code"
+              placeholder={t('buywash.deliveryAddressPlaceholder')}
               style={styles.input}
               multiline
               numberOfLines={2}
@@ -329,19 +332,19 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 
             {/* Location Selection */}
             <View style={styles.locationSection}>
-              <Text style={styles.locationLabel}>Delivery Location *</Text>
+              <Text style={styles.locationLabel}>{t('buywash.deliveryLocationRequiredLabel')}</Text>
               
               {deliveryLatitude && deliveryLongitude ? (
                 <View style={styles.selectedLocationCard}>
                   <Icon name="location" size={20} color="#10B981" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.selectedLocationText}>Location Selected</Text>
+                    <Text style={styles.selectedLocationText}>{t('buywash.locationSelected')}</Text>
                     <Text style={styles.selectedLocationCoords}>
                       {deliveryLatitude.toFixed(4)}, {deliveryLongitude.toFixed(4)}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={openMapPicker} style={styles.changeLocationBtn}>
-                    <Text style={styles.changeLocationText}>Change</Text>
+                    <Text style={styles.changeLocationText}>{t('buywash.change')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -356,14 +359,14 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
                     ) : (
                       <>
                         <Icon name="navigate" size={18} color="#fff" />
-                        <Text style={styles.locationButtonText}>Use Current</Text>
+                        <Text style={styles.locationButtonText}>{t('buywash.useCurrent')}</Text>
                       </>
                     )}
                   </TouchableOpacity>
                   
                   <TouchableOpacity onPress={openMapPicker} style={[styles.locationButton, styles.mapPickerBtn]}>
                     <Icon name="map" size={18} color="#fff" />
-                    <Text style={styles.locationButtonText}>Pick on Map</Text>
+                    <Text style={styles.locationButtonText}>{t('buywash.pickOnMap')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -375,7 +378,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 
             <TextInput
               mode="outlined"
-              label="Contact Phone *"
+              label={t('buywash.contactPhoneRequiredLabel')}
               value={deliveryPhone}
               onChangeText={(text) => {
                 setDeliveryPhone(text);
@@ -384,7 +387,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
                 }
               }}
               error={!!phoneError}
-              placeholder="+1234567890"
+              placeholder={t('buywash.phonePlaceholder')}
               keyboardType="phone-pad"
               style={styles.input}
             />
@@ -394,10 +397,10 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 
             <TextInput
               mode="outlined"
-              label="Special Instructions (Optional)"
+              label={t('buywash.specialInstructionsOptional')}
               value={deliveryNotes}
               onChangeText={setDeliveryNotes}
-              placeholder="Parking instructions, gate code, etc."
+              placeholder={t('buywash.specialInstructionsPlaceholder')}
               style={styles.input}
               multiline
               numberOfLines={3}
@@ -407,7 +410,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Total Price Display */}
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Total Price:</Text>
+          <Text style={styles.priceLabel}>{t('buywash.totalPrice')}</Text>
           <Text style={styles.price}>€{getWashTypePrice().toFixed(2)}</Text>
         </View>
 
@@ -419,12 +422,12 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   disabled={initializingCheckout}
   buttonColor="#007AFF"
 >
-  {initializingCheckout ? 'Preparing checkout...' : 'Proceed to Payment'}
+  {initializingCheckout ? t('buywash.preparingCheckout') : t('buywash.proceedToPayment')}
 </Button>
 
           ) : (
            <Text style={styles.loginPrompt}>
-  Sign in to continue with payment
+  {t('buywash.signInToContinuePayment')}
 </Text>
 
           )}

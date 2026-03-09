@@ -28,6 +28,8 @@ import AddCar from './src/components/AddCar';
 import BottomTabs from './src/components/BottomTabs';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { SocketProvider } from './src/config/SocketProvider';
+import { LanguageProvider } from './src/contexts/LanguageContext';
+import './src/i18n';
 import { getUserCars } from './src/redux/actions/carActions';
 import { RootStackParamList } from './src/redux/types/stackParams';
 import QrScreen from './src/screens/QrScreen';
@@ -50,10 +52,12 @@ function App() {
 
     <SafeAreaProvider>
       <Provider store={store}>
-        <ErrorBoundary>
-          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-          <AppContent />
-        </ErrorBoundary>
+        <LanguageProvider>
+          <ErrorBoundary>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+            <AppContent />
+          </ErrorBoundary>
+        </LanguageProvider>
       </Provider>
     </SafeAreaProvider>
         </Theme>

@@ -2,8 +2,9 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import BackButton from '../components/ui/BackButton';
 import { useDispatch, useSelector } from 'react-redux';
+import BackButton from '../components/ui/BackButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { confirm_payment } from '../redux/actions/BuyActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { goBackOrHome } from '../utils/navigation';
@@ -14,6 +15,7 @@ type CheckoutScreenNavigationProp = NativeStackNavigationProp<
 >;
 
 const CheckoutScreen = () => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const pi = useSelector((state: any) => state.cart.pi);
   const navigation = useNavigation<CheckoutScreenNavigationProp>();
@@ -47,9 +49,9 @@ const CheckoutScreen = () => {
 
       {/* Checkout Card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Confirm Your Payment</Text>
+        <Text style={styles.cardTitle}>{t('checkout.confirmYourPayment')}</Text>
         <Text style={styles.cardText}>
-          Payment Amount: <Text style={styles.amount}>€{pi?.amount || '0.00'}</Text>
+          {t('checkout.paymentAmount')} <Text style={styles.amount}>€{pi?.amount || '0.00'}</Text>
         </Text>
 
         <TouchableOpacity
@@ -58,7 +60,7 @@ const CheckoutScreen = () => {
           disabled={loading}
         >
           <Text style={styles.checkoutText}>
-            {loading ? 'Processing...' : 'Confirm Payment'}
+            {loading ? t('checkout.processing') : t('checkout.confirmPayment')}
           </Text>
         </TouchableOpacity>
       </View>

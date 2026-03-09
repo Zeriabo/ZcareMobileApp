@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { createRepairBooking, fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
 import { RootState } from '../redux/store';
 import { RootStackParamList } from '../redux/types/stackParams';
@@ -33,6 +34,7 @@ type CatalogSku = {
 };
 
 const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const { shop } = route.params;
   const user = useSelector((state: RootState) => state.user.user as any);
@@ -107,7 +109,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
           .filter((item: any) => item && item.id)
           .map((item: any) => ({
             id: String(item.id),
-            name: String(item.name ?? 'Repair service'),
+            name: String(item.name ?? t('repair.repairServiceFallback')),
             description: item.description ? String(item.description) : undefined,
             durationMinutes: Number.isFinite(Number(item.durationMinutes)) ? Number(item.durationMinutes) : undefined,
             priceAmount: Number.isFinite(Number(item.priceAmount))
@@ -119,7 +121,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
               ? String(item.priceCurrency)
               : item.price?.currency
                 ? String(item.price.currency)
-                : 'EUR',
+                : t('repair.currencyDefault'),
             active: item.active !== false,
           }))
           .filter(item => item.active !== false);
@@ -134,7 +136,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         setSelectedRepairId(finalOptions[0]?.id ?? null);
       } catch (error: any) {
         setRepairOptions([]);
-        setSkuError(error?.details?.message || error?.message || 'Could not load repair services and prices');
+        setSkuError(error?.details?.message || error?.message || t('repair.couldNotLoadServicesPrices'));
       } finally {
         setSkuLoading(false);
       }
@@ -149,20 +151,20 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleBookRepair = async () => {
     if (!user?.token) {
-      Alert.alert('Sign in required', 'Please sign in before booking a repair.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign in', onPress: () => navigation.navigate('SignIn') },
+      Alert.alert(t('repair.signInRequired'), t('repair.signInBeforeBooking'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('auth.signIn'), onPress: () => navigation.navigate('SignIn') },
       ]);
       return;
     }
 
     if (!selectedCarId || !selectedCarPlate) {
-      Alert.alert('Select a car', 'Please select a car for the repair booking.');
+      Alert.alert(t('repair.selectCar'), t('repair.selectCarForBooking'));
       return;
     }
 
     if (!selectedRepairId) {
-      Alert.alert('Select repair', 'Please select what to repair.');
+      Alert.alert(t('repair.selectRepair'), t('repair.selectWhatToRepair'));
       return;
     }
 
@@ -179,25 +181,25 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
         vehicleRegistrationNumber: selectedCarPlate,
         repairShopId: numericShopId,
         scheduledDate: scheduleAt,
-        description: `${selectedRepair?.name || 'Repair'} - ${selectedRepair?.description || 'Service'}`,
+        description: `${selectedRepair?.name || t('bookings.repair')} - ${selectedRepair?.description || t('repair.serviceFallback')}`,
       };
 
       await dispatch(createRepairBooking(bookingData) as any);
       
-      Alert.alert('Success', 'Repair booking created successfully!', [
+      Alert.alert(t('common.success'), t('repair.bookingCreated'), [
         {
-          text: 'View Bookings',
+          text: t('repair.viewBookings'),
           onPress: () => navigation.navigate('RepairBookings' as any),
         },
         {
-          text: 'OK',
+          text: t('common.done'),
           onPress: () => goBackSafe(),
         },
       ]);
     } catch (error: any) {
       Alert.alert(
-        'Booking Failed',
-        error?.message || 'Failed to create repair booking. Please try again.'
+        t('repair.bookingFailed'),
+        error?.message || t('repair.failedCreateBookingTryAgain')
       );
     } finally {
       setLoading(false);
@@ -209,20 +211,20 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
       <AppHeader title={shop.name} subtitle={shop.location} onBack={goBackSafe} />
 
       <AppCard>
-        <Text style={styles.label}>Services</Text>
+        <Text style={styles.label}>{t('repair.services')}</Text>
         {services.length ? (
           services.map((service) => (
             <Text key={service} style={styles.serviceItem}>• {service}</Text>
           ))
         ) : (
-          <Text style={styles.help}>No listed services from backend</Text>
+          <Text style={styles.help}>{t('repair.noListedServicesFromBackend')}</Text>
         )}
       </AppCard>
 
       <AppCard>
-        <Text style={styles.label}>What To Repair</Text>
+        <Text style={styles.label}>{t('repair.whatToRepair')}</Text>
         {skuLoading ? (
-          <Text style={styles.help}>Loading repair services...</Text>
+          <Text style={styles.help}>{t('repair.loadingRepairServices')}</Text>
         ) : repairOptions.length > 0 ? (
           <>
             <View style={styles.pickerWrap}>
@@ -230,21 +232,21 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
                 {repairOptions.map((option) => (
                   <Picker.Item
                     key={option.id}
-                    label={`${option.name} - ${option.priceAmount?.toFixed(2) ?? '0.00'} ${option.priceCurrency || 'EUR'}`}
+                    label={`${option.name} - ${option.priceAmount?.toFixed(2) ?? '0.00'} ${option.priceCurrency || t('repair.currencyDefault')}`}
                     value={option.id}
                   />
                 ))}
               </Picker>
             </View>
             <Text style={styles.priceTag}>
-              Price: {selectedRepair?.priceAmount?.toFixed(2) ?? '0.00'} {selectedRepair?.priceCurrency || 'EUR'}
+              {t('bookings.price')}: {selectedRepair?.priceAmount?.toFixed(2) ?? '0.00'} {selectedRepair?.priceCurrency || t('repair.currencyDefault')}
             </Text>
           </>
         ) : (
-          <Text style={styles.help}>{skuError || 'No repair services with prices found.'}</Text>
+          <Text style={styles.help}>{skuError || t('repair.noServicesWithPricesFound')}</Text>
         )}
 
-        <Text style={styles.label}>Choose Car</Text>
+        <Text style={styles.label}>{t('repair.chooseCar')}</Text>
         {cars.length > 0 ? (
           <>
             <View style={styles.pickerWrap}>
@@ -268,7 +270,7 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             {checkingInspection && (
               <Text style={{ marginTop: 8, color: '#3B82F6', fontSize: 13 }}>
-                Checking inspection status...
+                {t('repair.checkingInspectionStatus')}
               </Text>
             )}
             {inspectionWarning && (
@@ -278,31 +280,31 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
             {lastInspectionDate && (
               <Text style={{ marginTop: 8, color: '#374151', fontSize: 13 }}>
-                Last inspection date: {lastInspectionDate}
+                {t('repair.lastInspectionDate')}: {lastInspectionDate}
               </Text>
             )}
             {nextInspectionDate && (
               <Text style={{ marginTop: 4, color: '#374151', fontSize: 13 }}>
-                Next inspection due: {nextInspectionDate}
+                {t('repair.nextInspectionDue')}: {nextInspectionDate}
               </Text>
             )}
           </>
         ) : (
-          <Text style={styles.help}>No cars found. Add a car first.</Text>
+          <Text style={styles.help}>{t('repair.noCarsAddFirst')}</Text>
         )}
 
-        <Text style={[styles.label, { marginTop: 14 }]}>Schedule</Text>
+        <Text style={[styles.label, { marginTop: 14 }]}>{t('repair.schedule')}</Text>
         <TextInput
           value={scheduleAt}
           onChangeText={setScheduleAt}
-          placeholder="YYYY-MM-DDTHH:mm"
+          placeholder={t('repair.schedulePlaceholder')}
           autoCapitalize="none"
           style={styles.input}
         />
 
         <PrimaryButton 
           onPress={handleBookRepair} 
-          label={loading || repairLoading ? 'Booking...' : 'Book Repair'} 
+          label={loading || repairLoading ? t('repair.bookingInProgress') : t('repair.bookRepair')} 
           loading={loading || repairLoading} 
         />
       </AppCard>

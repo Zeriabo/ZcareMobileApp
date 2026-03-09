@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import BackButton from '../components/ui/BackButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { goBackOrHome } from '../utils/navigation';
 
 interface DeliveryPerson {
@@ -22,6 +23,7 @@ interface DeliveryPerson {
 }
 
 const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const { bookingId, deliveryLatitude, deliveryLongitude } = route.params || {};
   
   const mapRef = useRef<MapView>(null);
@@ -63,9 +65,9 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
             setDeliveryPerson({
               latitude: driverLat,
               longitude: driverLng,
-              name: String(data.specialistName || 'Wash Specialist'),
+              name: String(data.specialistName || t('deliveryTracking.washSpecialist')),
               phone: String(data.specialistPhone || ''),
-              eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} min`,
+              eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} ${t('deliveryTracking.min')}`,
             });
             setLoading(false);
             return;
@@ -79,14 +81,14 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
       setDeliveryPerson({
         latitude: deliveryLatitude - 0.005,
         longitude: deliveryLongitude - 0.005,
-        name: 'Wash Specialist',
+        name: t('deliveryTracking.washSpecialist'),
         phone: '',
-        eta: '15 min',
+        eta: `15 ${t('deliveryTracking.min')}`,
       });
       setLoading(false);
     } catch (error) {
       console.error('Error fetching delivery location:', error);
-      Alert.alert('Error', 'Could not load delivery tracking');
+      Alert.alert(t('common.error'), t('deliveryTracking.couldNotLoad'));
       setLoading(false);
     }
   };
@@ -103,9 +105,9 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
           setDeliveryPerson((prev) => ({
             latitude: driverLat,
             longitude: driverLng,
-            name: String(data.specialistName || prev?.name || 'Wash Specialist'),
+            name: String(data.specialistName || prev?.name || t('deliveryTracking.washSpecialist')),
             phone: String(data.specialistPhone || prev?.phone || ''),
-            eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} min`,
+            eta: `${Number.isFinite(eta) ? Math.max(1, eta) : 15} ${t('deliveryTracking.min')}`,
           }));
           return;
         }
@@ -125,7 +127,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
         ...prev,
         latitude: prev.latitude + latDiff * 0.1,
         longitude: prev.longitude + lngDiff * 0.1,
-        eta: Math.max(5, parseInt(prev.eta) - 1) + ' min', // Reduce ETA
+        eta: Math.max(5, parseInt(prev.eta) - 1) + ` ${t('deliveryTracking.min')}`, // Reduce ETA
       };
     });
   };
@@ -155,7 +157,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#10B981" />
-        <Text style={styles.loadingText}>Loading delivery tracking...</Text>
+        <Text style={styles.loadingText}>{t('deliveryTracking.loading')}</Text>
       </View>
     );
   }
@@ -164,7 +166,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <BackButton onPress={() => goBackOrHome(navigation)} />
-        <Text style={styles.headerTitle}>Track Delivery</Text>
+        <Text style={styles.headerTitle}>{t('deliveryTracking.trackDelivery')}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -178,7 +180,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
         {/* Delivery Destination Marker */}
         <Marker
           coordinate={{ latitude: deliveryLatitude, longitude: deliveryLongitude }}
-          title="Delivery Location"
+          title={t('deliveryTracking.deliveryLocation')}
         >
           <View style={styles.destinationMarker}>
             <Icon name="home" size={24} color="#fff" />
@@ -216,7 +218,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
         <View style={styles.infoCard}>
           <View style={styles.statusBadge}>
             <View style={styles.pulsingDot} />
-            <Text style={styles.statusText}>On the way</Text>
+            <Text style={styles.statusText}>{t('deliveryTracking.onTheWay')}</Text>
           </View>
 
           <View style={styles.driverInfo}>
@@ -225,7 +227,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.driverName}>{deliveryPerson.name}</Text>
-              <Text style={styles.driverRole}>Waterless Wash Specialist</Text>
+              <Text style={styles.driverRole}>{t('deliveryTracking.waterlessWashSpecialist')}</Text>
             </View>
             <View style={styles.etaBadge}>
               <Icon name="time-outline" size={16} color="#10B981" />
@@ -236,7 +238,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
           <View style={styles.actions}>
             <TouchableOpacity style={styles.callButton}>
               <Icon name="call" size={20} color="#fff" />
-              <Text style={styles.callButtonText}>Call Driver</Text>
+              <Text style={styles.callButtonText}>{t('deliveryTracking.callDriver')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.centerButton} onPress={fitMapToMarkers}>
@@ -247,7 +249,7 @@ const DeliveryTrackingScreen: React.FC<any> = ({ route, navigation }) => {
           <View style={styles.instructionBox}>
             <Icon name="information-circle-outline" size={18} color="#6B7280" />
             <Text style={styles.instructionText}>
-              The driver will arrive shortly. Please ensure your vehicle is accessible.
+              {t('deliveryTracking.driverArriveSoonInstruction')}
             </Text>
           </View>
         </View>

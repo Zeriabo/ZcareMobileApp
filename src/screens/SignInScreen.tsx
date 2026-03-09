@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { ImageBackground, StyleSheet, View } from 'react-native';
 import { Button, HelperText, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { signIn } from '../redux/actions/AuthActions';
 import { Validators } from '../utils/validators';
 
 const NOTIFICATION_CHANNEL_ID = 'zcare_updates';
 
 const SignInScreen = ({ navigation }: any) => {
+  const { t } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -41,16 +43,16 @@ useEffect(() => {
     switch (field) {
       case 'username':
         if (!Validators.required(value)) {
-          newErrors.username = 'Username is required';
+          newErrors.username = t('auth.errors.usernameRequired');
         } else if (!Validators.minLength(value, 3)) {
-          newErrors.username = 'Username must be at least 3 characters';
+          newErrors.username = t('auth.errors.usernameMinLength');
         } else {
           delete newErrors.username;
         }
         break;
       case 'password':
         if (!Validators.required(value)) {
-          newErrors.password = 'Password is required';
+          newErrors.password = t('auth.errors.passwordRequired');
         } else {
           delete newErrors.password;
         }
@@ -84,11 +86,11 @@ useEffect(() => {
       resizeMode="cover"
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Sign In</Text>
+        <Text style={styles.title}>{t('auth.signIn')}</Text>
 
         <TextInput
           mode="outlined"
-          label="Username"
+          label={t('auth.username')}
           value={username}
           onChangeText={(text) => {
             setUsername(text);
@@ -106,7 +108,7 @@ useEffect(() => {
 
         <TextInput
           mode="outlined"
-          label="Password"
+          label={t('auth.password')}
           secureTextEntry
           value={password}
           onChangeText={(text) => {
@@ -130,18 +132,18 @@ useEffect(() => {
           buttonColor="#4F46E5"
           disabled={!isFormValid()}
         >
-          Sign In
+          {t('auth.signIn')}
         </Button>
 
-        {user && <Text style={styles.message}>Signed in successfully!</Text>}
+        {user && <Text style={styles.message}>{t('auth.signInSuccess')}</Text>}
 
         <Snackbar
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
           duration={3000}
-          action={{ label: 'Close', onPress: () => setSnackbarVisible(false) }}
+          action={{ label: t('common.close'), onPress: () => setSnackbarVisible(false) }}
         >
-          {error || 'Please fix validation errors.'}
+          {error || t('errors.unknownError')}
         </Snackbar>
       </View>
     </ImageBackground>

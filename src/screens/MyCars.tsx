@@ -3,11 +3,13 @@ import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, Card, Circle, Text, XStack, YStack } from 'tamagui';
+import { useLanguage } from '../contexts/LanguageContext';
 import { deleteCar, getUserCars } from '../redux/actions/carActions';
 import { fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
 import { setLastInspectionDate } from '../utils/repairService';
 
 function MyCars() {
+  const { t } = useLanguage();
   const user = useSelector((state: any) => state.user.user);
   const cars = useSelector((state: any) => state.cars.cars);
   const inspectionData = useSelector((state: any) => state.repair?.inspectionData ?? new Map());
@@ -16,10 +18,10 @@ function MyCars() {
   const isFocused = useIsFocused();
   const getInspectionBadge = (result?: string) => {
     const normalized = String(result || '').toLowerCase();
-    if (normalized.includes('fail') || normalized.includes('reject')) return { label: 'Attention needed', color: '$red10' };
-    if (normalized.includes('pending')) return { label: 'Pending', color: '$yellow10' };
-    if (!normalized) return { label: 'Unknown', color: '$gray10' };
-    return { label: 'Healthy', color: '$green10' };
+    if (normalized.includes('fail') || normalized.includes('reject')) return { label: t('cars.inspectionLabels.attentionNeeded'), color: '$red10' };
+    if (normalized.includes('pending')) return { label: t('cars.inspectionLabels.pending'), color: '$yellow10' };
+    if (!normalized) return { label: t('cars.inspectionLabels.unknown'), color: '$gray10' };
+    return { label: t('cars.inspectionLabels.healthy'), color: '$green10' };
   };
 
   const getNextInspectionDate = (lastInspectionDate?: string) => {
@@ -49,12 +51,12 @@ function MyCars() {
 
   const handleRemoveCar = (car: any) => {
     Alert.alert(
-      'Confirm Deletion',
-      'Are you sure you want to delete this car?',
+      t('cars.confirmDeletion'),
+      t('cars.deleteConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () =>
             dispatch(deleteCar({ carId: car.carId, token: user.token })),
@@ -73,21 +75,21 @@ function MyCars() {
 
     const promptFn = (Alert as any).prompt;
     if (typeof promptFn !== 'function') {
-      Alert.alert('Update inspection date', `Please use iOS prompt capable runtime to edit date. Current: ${currentValue}`);
+      Alert.alert(t('cars.updateInspectionDate'), t('cars.promptInspectionDate', { currentValue }));
       return;
     }
 
     promptFn(
-      'Last Inspection Date',
-      'Enter date in format YYYY-MM-DD',
+      t('cars.lastInspectionDatePrompt'),
+      t('cars.enterDateFormat'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Save',
+          text: t('common.save'),
           onPress: async (input?: string) => {
             const value = (input || '').trim();
             if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-              Alert.alert('Invalid date', 'Use format YYYY-MM-DD');
+              Alert.alert(t('cars.invalidDate'), t('cars.useDateFormat'));
               return;
             }
 
@@ -98,7 +100,7 @@ function MyCars() {
                 dispatch(getUserCars(user.token));
               }
             } catch (e: any) {
-              Alert.alert('Update failed', e?.message || 'Could not save inspection date');
+              Alert.alert(t('cars.updateFailed'), e?.message || t('cars.updateFailedMessage'));
             }
           },
         },
@@ -111,11 +113,11 @@ function MyCars() {
   return (
     <YStack padding="$4" space="$4">
       <Text fontSize={22} fontWeight="700">
-        My Cars
+        {t('cars.title')}
       </Text>
 
       {cars.length === 0 && (
-        <Text color="$gray10">No cars registered yet</Text>
+        <Text color="$gray10">{t('cars.noCars')}</Text>
       )}
 
       {cars.map((car: any) => {
@@ -149,16 +151,16 @@ function MyCars() {
                 </Text>
               </XStack>
               <Text fontSize={14} color="$gray10">
-                 Manufacture Year: {new Date(car.dateOfManufacture).getFullYear()}
+                {t('cars.manufactureYear')}: {new Date(car.dateOfManufacture).getFullYear()}
               </Text>
               <Text fontSize={14} color="$gray10">
-                Last Inspection: {inspection?.lastInspectionDate || 'Not available'}
+                {t('cars.lastInspection')}: {inspection?.lastInspectionDate || t('cars.notAvailable')}
               </Text>
               <Text fontSize={14} color="$gray10">
-                Next Inspection Due: {nextInspection || 'Not available'}
+                {t('cars.nextInspectionDue')}: {nextInspection || t('cars.notAvailable')}
               </Text>
               <Text fontSize={13} color="$gray9">
-                Inspection Status: {inspection?.message || 'Not available'}
+                {t('cars.inspectionStatus')}: {inspection?.message || t('cars.notAvailable')}
               </Text>
 
               <Button
@@ -170,7 +172,7 @@ function MyCars() {
                 pressStyle={{ scale: 0.95, backgroundColor: '$blue9' }}
                 onPress={() => handleEditInspectionDate(car)}
               >
-                Edit Inspection Date
+                {t('cars.editInspectionDate')}
               </Button>
 
               <Button
@@ -182,7 +184,7 @@ function MyCars() {
                 pressStyle={{ scale: 0.95, backgroundColor: '$red9' }}
                 onPress={() => handleRemoveCar(car)}
               >
-                Remove Car
+                {t('cars.removeCar')}
               </Button>
             </YStack>
           </Card>

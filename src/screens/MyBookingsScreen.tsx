@@ -7,11 +7,14 @@ import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
 import { useDispatch, useSelector } from 'react-redux';
 import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
+import { useLanguage } from '../contexts/LanguageContext';
 import { deleteBooking, fetchUserBookings, updateBooking } from '../redux/actions/BookingActions';
 import { RootState } from '../redux/store';
 import { Colors, Spacing } from '../theme/design';
+import { localizeProgramNameFromText } from '../utils/programLocalization';
 
 const MyBookingsScreen: React.FC = () => {
+  const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const navigation = useNavigation<any>();
   const userState = useSelector((state: RootState) => state.user.user);
@@ -56,7 +59,15 @@ const MyBookingsScreen: React.FC = () => {
       );
 
     const statusUpper = String(item.status || (item.executed ? 'FINISHED' : 'PURCHASED')).toUpperCase();
-    const statusLabel = statusUpper.replaceAll('_', ' ');
+    const statusLabel = (() => {
+      if (statusUpper === 'FINISHED') return t('bookings.statuses.finished');
+      if (statusUpper === 'WASHING') return t('bookings.statuses.washing');
+      if (statusUpper === 'QUEUING') return t('bookings.statuses.queuing');
+      if (statusUpper === 'CANCELED') return t('bookings.statuses.canceled');
+      if (statusUpper === 'NOT_PURCHASED') return t('bookings.statuses.notPurchased');
+      if (statusUpper === 'PURCHASED') return t('bookings.statuses.purchased');
+      return statusUpper.replaceAll('_', ' ');
+    })();
     const isTrackableWash =
       !isRepairTicket &&
       statusUpper !== 'FINISHED' &&
@@ -73,13 +84,13 @@ const MyBookingsScreen: React.FC = () => {
 
     const scheduledLabel = item.scheduledTime
       ? new Date(item.scheduledTime).toLocaleString()
-      : 'Not scheduled';
+      : t('bookings.notScheduled');
 
     const handleCancel = () => {
-      Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [
-        { text: 'No', style: 'cancel' },
+      Alert.alert(t('bookings.cancelTitle'), t('bookings.cancelConfirm'), [
+        { text: t('bookings.cancelNo'), style: 'cancel' },
         {
-          text: 'Yes, cancel',
+          text: t('bookings.cancelYes'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -89,7 +100,7 @@ const MyBookingsScreen: React.FC = () => {
                 await dispatch(fetchUserBookings(userState.token));
               }
             } catch (error: any) {
-              Alert.alert('Cancel failed', error?.response?.data?.message || error?.message || 'Try again later');
+              Alert.alert(t('bookings.cancelFailed'), error?.response?.data?.message || error?.message || t('bookings.tryAgainLater'));
             } finally {
               setProcessingId(null);
             }
@@ -123,9 +134,9 @@ const MyBookingsScreen: React.FC = () => {
         if (userState?.token) {
           await dispatch(fetchUserBookings(userState.token));
         }
-        Alert.alert('Rescheduled', 'Booking moved +1 day.');
+        Alert.alert(t('bookings.rescheduled'), t('bookings.rescheduledMessage'));
       } catch (error: any) {
-        Alert.alert('Reschedule failed', error?.response?.data?.message || error?.message || 'Try again later');
+        Alert.alert(t('bookings.rescheduleFailed'), error?.response?.data?.message || error?.message || t('bookings.tryAgainLater'));
       } finally {
         setProcessingId(null);
       }
@@ -134,15 +145,15 @@ const MyBookingsScreen: React.FC = () => {
     return (
     <AppCard style={styles.bookingCard}>
       <Text style={styles.cardTitle}>
-        {isRepairTicket ? 'Repair Ticket' : 'Wash Ticket'}
+        {isRepairTicket ? t('bookings.ticketRepair') : t('bookings.ticketWash')}
       </Text>
       <View style={styles.qrContainer}>
-        <QRCode value={item.qr_code || item.qrCode || 'No Data'} size={180} backgroundColor="white" />
+        <QRCode value={item.qr_code || item.qrCode || t('bookings.noData')} size={180} backgroundColor="white" />
       </View>
       <View style={styles.detailsContainer}>
         <View style={styles.detailRow}>
           <Text style={styles.label}>
-            {isRepairTicket ? 'Repair station' : 'Station'}
+            {isRepairTicket ? t('bookings.repairStation') : t('bookings.station')}
           </Text>
           <Text style={styles.value}>
             {isRepairTicket
@@ -151,41 +162,41 @@ const MyBookingsScreen: React.FC = () => {
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Vehicle registration</Text>
+          <Text style={styles.label}>{t('bookings.vehicleRegistration')}</Text>
           <Text style={styles.value}>{item.carRegistrationPlate || '-'}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Scheduled</Text>
+          <Text style={styles.label}>{t('bookings.scheduled')}</Text>
           <Text style={styles.value}>{scheduledLabel}</Text>
         </View>
         {isRepairTicket && (
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Repair</Text>
+            <Text style={styles.label}>{t('bookings.repair')}</Text>
             <Text style={styles.value}>{item.repairItemName || '-'}</Text>
           </View>
         )}
         {!isRepairTicket && (
           <View style={styles.detailRow}>
-            <Text style={styles.label}>Program</Text>
-            <Text style={styles.value}>{item.washingProgramName || item.washingProgramId || '-'}</Text>
+            <Text style={styles.label}>{t('bookings.program')}</Text>
+            <Text style={styles.value}>{localizeProgramNameFromText(item.washingProgramName || item.washingProgramId, t)}</Text>
                   {!isRepairTicket && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.label}>Wash Type</Text>
+                      <Text style={styles.label}>{t('bookings.washType')}</Text>
                       <Text style={styles.value}>
-                        {isWaterlessTicket ? '💧 Waterless Mobile' :
-                         '🏪 Regular'}
+                        {isWaterlessTicket ? t('bookings.washTypeWaterlessMobile') :
+                         t('bookings.washTypeRegular')}
                       </Text>
                     </View>
                   )}
                   {isWaterlessTicket && item.deliveryAddress && (
                     <>
                       <View style={styles.detailRow}>
-                        <Text style={styles.label}>Delivery Address</Text>
+                        <Text style={styles.label}>{t('bookings.deliveryAddress')}</Text>
                         <Text style={[styles.value, styles.multiLine]}>{item.deliveryAddress}</Text>
                       </View>
                       {item.deliveryPhone && (
                         <View style={styles.detailRow}>
-                          <Text style={styles.label}>Contact Phone</Text>
+                          <Text style={styles.label}>{t('bookings.contactPhone')}</Text>
                           <Text style={styles.value}>{item.deliveryPhone}</Text>
                         </View>
                       )}
@@ -194,7 +205,7 @@ const MyBookingsScreen: React.FC = () => {
           </View>
         )}
         <View style={styles.detailRow}>
-          <Text style={styles.label}>Status</Text>
+          <Text style={styles.label}>{t('bookings.status')}</Text>
           <Text style={[styles.value, { color: statusColor }]}>{statusLabel}</Text>
         </View>
         <View style={styles.actionRow}>
@@ -202,14 +213,14 @@ const MyBookingsScreen: React.FC = () => {
             {processingId === item.id ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.actionText}>Cancel</Text>
+              <Text style={styles.actionText}>{t('common.cancel')}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={handleReschedule} disabled={processingId === item.id}>
             {processingId === item.id ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.actionText}>Reschedule +1d</Text>
+              <Text style={styles.actionText}>{t('bookings.reschedulePlusOneDay')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -218,7 +229,7 @@ const MyBookingsScreen: React.FC = () => {
             style={[styles.actionBtn, styles.trackBtn]}
             onPress={() => navigation.navigate('ActiveWash', { bookingId: Number(item.id) })}
           >
-            <Text style={styles.actionText}>Track Live Wash</Text>
+            <Text style={styles.actionText}>{t('bookings.trackLiveWash')}</Text>
           </TouchableOpacity>
         )}
         {isWaterlessTicket && 
@@ -233,7 +244,7 @@ const MyBookingsScreen: React.FC = () => {
               deliveryLongitude: item.deliveryLongitude,
             })}
           >
-            <Text style={styles.actionText}>🚗 Track Delivery</Text>
+            <Text style={styles.actionText}>{t('bookings.trackDelivery')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -261,7 +272,7 @@ const MyBookingsScreen: React.FC = () => {
   if (!bookings.length) {
     return (
       <View style={styles.center}>
-        <Text style={styles.message}>No active bookings found</Text>
+        <Text style={styles.message}>{t('bookings.noActiveBookings')}</Text>
       </View>
     );
   }
@@ -272,7 +283,7 @@ const MyBookingsScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerWrap}>
         <View style={styles.headerTop}>
-          <AppHeader title="Booking tickets" subtitle={`${bookings.length} active codes`} />
+          <AppHeader title={t('bookings.bookingTickets')} subtitle={t('bookings.activeCodes', { count: bookings.length })} />
           {completedCount > 0 && (
             <TouchableOpacity 
               style={styles.completedBadge}

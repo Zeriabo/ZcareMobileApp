@@ -2,6 +2,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { apiClient } from '../utils/apiClient';
 import { logger } from '../utils/logger';
@@ -14,59 +15,60 @@ const normalizeStatus = (raw: any) => {
   return s;
 };
 
-const getStatusCopy = (status: string) => {
+const getStatusCopy = (status: string, t: (key: string, options?: any) => string) => {
   switch (status) {
     case 'PURCHASED':
     case 'NOT_PURCHASED':
       return {
-        title: 'Your car wash is purchased',
-        helper: 'Waiting for queue/wash start update from station.',
+        title: t('activeWash.purchasedTitle'),
+        helper: t('activeWash.purchasedHelper'),
       };
     case 'QUEUING':
     case 'QUEUE':
       return {
-        title: 'Your car wash is in queue',
-        helper: 'Your wash will start soon.',
+        title: t('activeWash.queueTitle'),
+        helper: t('activeWash.queueHelper'),
       };
     case 'STARTED':
       return {
-        title: 'Your car wash is starting',
-        helper: 'Wash is being prepared.',
+        title: t('activeWash.startedTitle'),
+        helper: t('activeWash.startedHelper'),
       };
     case 'WASHING':
     case 'IN_PROGRESS':
     case 'INPROGRESS':
       return {
-        title: 'Your car is being washed',
-        helper: 'Live wash in progress.',
+        title: t('activeWash.washingTitle'),
+        helper: t('activeWash.washingHelper'),
       };
     case 'FINISHED':
       return {
-        title: 'Your car wash is finished',
-        helper: 'Wash completed successfully!',
+        title: t('activeWash.finishedTitle'),
+        helper: t('activeWash.finishedHelper'),
       };
     case 'CANCELED':
     case 'CANCELLED':
       return {
-        title: 'Your car wash is canceled',
-        helper: 'This wash was canceled.',
+        title: t('activeWash.canceledTitle'),
+        helper: t('activeWash.canceledHelper'),
       };
     case 'FAULT':
     case 'FAILED':
     case 'ERROR':
       return {
-        title: 'Wash encountered an issue',
-        helper: 'Please contact support.',
+        title: t('activeWash.issueTitle'),
+        helper: t('activeWash.issueHelper'),
       };
     default:
       return {
-        title: `Wash status: ${status.replaceAll('_', ' ')}`,
-        helper: 'Live wash status from backend',
+        title: t('activeWash.statusTitle', { status: status.replaceAll('_', ' ') }),
+        helper: t('activeWash.liveStatusHelper'),
       };
   }
 };
 
 const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const { bookingId } = route.params;
   const dispatch = useDispatch<any>();
   const booking = useSelector((state: any) =>
@@ -162,17 +164,17 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
         
         // apiClient returns ApiErrorResponse with status, message, details
         const statusCode = e?.status || e?.response?.status;
-        const errorMessage = e?.message || e?.details?.message || 'Could not fetch wash status';
+        const errorMessage = e?.message || e?.details?.message || t('activeWash.fetchStatusFailed');
         
         logger.error('Failed to fetch booking status', { bookingId, statusCode, errorMessage });
         
         // Show error only if it's not a temporary network issue or if mock mode didn't help
         if (statusCode && statusCode >= 400 && statusCode < 500) {
-          setError('Booking not found or unavailable');
+          setError(t('activeWash.bookingUnavailable'));
         } else if (statusCode && statusCode >= 500) {
-          setError('Server error. Retrying...');
+          setError(t('activeWash.serverRetrying'));
         } else {
-          setError('Connection issue. Retrying...');
+          setError(t('activeWash.connectionRetrying'));
         }
         
         setLoading(false);
@@ -193,18 +195,18 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
     if (status === 'FINISHED' && !showSuccessAlert && previousStatusRef.current !== 'FINISHED') {
       setShowSuccessAlert(true);
       Alert.alert(
-        '✅ Wash Completed!',
-        'Your car wash has been completed successfully.',
+        t('activeWash.completedAlertTitle'),
+        t('activeWash.completedAlertMessage'),
         [
           {
-            text: 'View History',
+            text: t('activeWash.viewHistory'),
             onPress: () => {
               setShowSuccessAlert(false);
               navigation.navigate('CompletedBookings');
             },
           },
           {
-            text: 'Home',
+            text: t('navigation.home'),
             onPress: () => {
               setShowSuccessAlert(false);
               navigation.reset({
@@ -254,19 +256,28 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [backendBooking, booking, status]);
 
-  const statusCopy = getStatusCopy(status);
+  const statusCopy = getStatusCopy(status, t);
+  const translatedStatus = (() => {
+    if (status === 'FINISHED') return t('bookings.statuses.finished');
+    if (status === 'WASHING' || status === 'IN_PROGRESS' || status === 'INPROGRESS') return t('bookings.statuses.washing');
+    if (status === 'QUEUING' || status === 'QUEUE') return t('bookings.statuses.queuing');
+    if (status === 'CANCELED' || status === 'CANCELLED') return t('bookings.statuses.canceled');
+    if (status === 'NOT_PURCHASED') return t('bookings.statuses.notPurchased');
+    if (status === 'PURCHASED') return t('bookings.statuses.purchased');
+    return status.replaceAll('_', ' ');
+  })();
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
         {statusCopy.title}
       </Text>
-      <Text style={styles.subTitle}>Booking #{bookingId}</Text>
+      <Text style={styles.subTitle}>{t('activeWash.bookingNumber', { id: bookingId })}</Text>
 
       <View style={styles.animationFallback}>
         <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.animationText}>
-          {loading ? 'Loading status from backend...' : statusCopy.helper}
+          {loading ? t('activeWash.loadingFromBackend') : statusCopy.helper}
         </Text>
       </View>
 
@@ -278,10 +289,10 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.progressText}>{Math.round(progress)}%</Text>
         </>
       ) : (
-        <Text style={styles.progressUnknown}>Progress unavailable right now. Status updates are still live.</Text>
+        <Text style={styles.progressUnknown}>{t('activeWash.progressUnavailable')}</Text>
       )}
 
-      <Text style={styles.statusText}>Status: {status.replaceAll('_', ' ')}</Text>
+      <Text style={styles.statusText}>{t('activeWash.statusLabel')}: {translatedStatus}</Text>
       {visibleError ? <Text style={styles.errorText}>{visibleError}</Text> : null}
 
       <Pressable
@@ -293,7 +304,7 @@ const ActiveWashScreen: React.FC<Props> = ({ route, navigation }) => {
         }
         style={styles.homeBtn}
       >
-        <Text style={styles.homeBtnText}>Back to Home</Text>
+        <Text style={styles.homeBtnText}>{t('activeWash.backToHome')}</Text>
       </Pressable>
     </View>
   );

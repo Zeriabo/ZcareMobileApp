@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from '../components/ui/BackButton';
+import { useLanguage } from '../contexts/LanguageContext';
 import { fetchPrograms } from '../redux/actions/programsActions';
 import { selectStation } from '../redux/actions/stationActions';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { CarWashingProgram, RootState, Station } from '../redux/types/stationsActionTypes';
 import { resolveMediaUrl } from '../utils/media';
 import { goBackOrHome } from '../utils/navigation';
+import { localizeWashProgramName } from '../utils/programLocalization';
 
 type StationPageRouteProp = RouteProp<RootStackParamList, 'StationPage'>;
 type StationPageNavigationProp = NativeStackNavigationProp<RootStackParamList, 'StationPage'>;
@@ -39,6 +41,7 @@ const openNavigation = (lat: number, lng: number) => {
 };
 
 const StationPage: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useLanguage();
   const { station } = route.params as { station: Station };
   const dispatch = useDispatch<any>();
 
@@ -64,7 +67,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
 
   const getProgramPrice = (program: CarWashingProgram) => {
     const rawPrice = Number(program.price);
-    return Number.isFinite(rawPrice) ? `EUR ${rawPrice.toFixed(2)}` : 'Price at station';
+    return Number.isFinite(rawPrice) ? `EUR ${rawPrice.toFixed(2)}` : t('station.priceAtStation');
   };
 
   const handleProgramSelection = (selectedProgram: CarWashingProgram) => {
@@ -83,7 +86,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
           ) : (
             <View style={styles.heroFallback}>
               <Icon name="water-outline" size={28} color="#9CA3AF" />
-              <Text style={styles.heroFallbackText}>No station image available</Text>
+              <Text style={styles.heroFallbackText}>{t('station.noImage')}</Text>
             </View>
           )}
 
@@ -132,9 +135,9 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
             disabled={!hasStationCoordinates}
           >
             <View>
-              <Text style={styles.directionTitle}>Get Directions</Text>
+              <Text style={styles.directionTitle}>{t('home.directions')}</Text>
               <Text style={styles.directionSubtitle}>
-                {hasStationCoordinates ? 'Open turn-by-turn navigation' : 'Location coordinates unavailable'}
+                {hasStationCoordinates ? t('station.openTurnByTurn') : t('station.locationCoordinatesUnavailable')}
               </Text>
             </View>
             <Icon name="arrow-forward" size={18} color="#4F46E5" />
@@ -152,10 +155,10 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
               );
               const fallbackWaterlessProgram = {
                 id: null,
-                name: 'Waterless Mobile Wash',
+                name: t('home.waterlessMobileWash'),
                 price: 25,
                 programType: 'waterless',
-                description: 'Eco-friendly wash delivered to your location',
+                description: t('home.waterlessDescription'),
               };
               navigation.navigate('Buywash', { selectedProgram: waterlessProgram || fallbackWaterlessProgram });
             }}
@@ -164,27 +167,27 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
               <Icon name="water-outline" size={24} color="#10B981" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.waterlessTitle}>🚗 Order Waterless Mobile Wash</Text>
-              <Text style={styles.waterlessSubtitle}>Eco-friendly wash delivered to your location</Text>
+              <Text style={styles.waterlessTitle}>{t('station.orderWaterlessMobileWash')}</Text>
+              <Text style={styles.waterlessSubtitle}>{t('home.waterlessDescription')}</Text>
             </View>
             <Icon name="chevron-forward" size={20} color="#10B981" />
           </Pressable>
 
-          <Text style={styles.sectionTitle}>Available Programs</Text>
+          <Text style={styles.sectionTitle}>{t('station.availablePrograms')}</Text>
 
           {programsLoading && (
             <View style={styles.loadingPrograms}>
               <ActivityIndicator size="small" color="#4F46E5" />
-              <Text style={styles.helperText}>Loading programs...</Text>
+              <Text style={styles.helperText}>{t('station.loadingPrograms')}</Text>
             </View>
           )}
 
           {!programsLoading && programsError && (
-            <Text style={styles.helperText}>Could not load programs right now.</Text>
+            <Text style={styles.helperText}>{t('station.couldNotLoadPrograms')}</Text>
           )}
 
           {!programsLoading && !programsError && programs.length === 0 && (
-            <Text style={styles.helperText}>No wash programs are available at this station.</Text>
+            <Text style={styles.helperText}>{t('station.noProgramsAvailable')}</Text>
           )}
 
           {!programsLoading &&
@@ -196,7 +199,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => handleProgramSelection(program)}
               >
                 <View style={styles.programMain}>
-                  <Text style={styles.programName}>{program.name}</Text>
+                  <Text style={styles.programName}>{localizeWashProgramName(program, t)}</Text>
                   <Text style={styles.programPrice}>{getProgramPrice(program)}</Text>
                 </View>
 
@@ -209,7 +212,7 @@ const StationPage: React.FC<Props> = ({ route, navigation }) => {
                 ) : (
                   <View style={styles.programMediaFallback}>
                     <Icon name="image-outline" size={16} color="#6B7280" />
-                    <Text style={styles.programMediaFallbackText}>No media</Text>
+                    <Text style={styles.programMediaFallbackText}>{t('station.noMedia')}</Text>
                   </View>
                 )}
               </Pressable>

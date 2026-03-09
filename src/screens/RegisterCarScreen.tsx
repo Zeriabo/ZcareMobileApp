@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import YearPicker from 'react-native-month-year-picker';
 import { Button, Card, HelperText, TextInput } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLanguage } from '../contexts/LanguageContext';
 import { getUserCars, registerCar } from '../redux/actions/carActions';
 import Car from '../redux/types/CarType';
 import { Validators } from '../utils/validators';
@@ -12,6 +13,7 @@ interface Props {
   navigation: NavigationProp<any>;
 }
 const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
+  const { t } = useLanguage();
   const [registrationPlate, setRegistrationPlate] = useState('');
   const [manufacture, setManufacture] = useState('');
   const [dateOfManufacture, setDateOfManufacture] = useState(new Date());
@@ -87,27 +89,27 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
     switch (field) {
       case 'registrationPlate':
         if (!Validators.required(value)) {
-          newErrors.registrationPlate = 'Registration plate is required';
+          newErrors.registrationPlate = t('cars.registrationRequired');
         } else if (!Validators.minLength(value, 3)) {
-          newErrors.registrationPlate = 'Registration plate must be at least 3 characters';
+          newErrors.registrationPlate = t('cars.registrationMinLength');
         } else if (!Validators.maxLength(value, 15)) {
-          newErrors.registrationPlate = 'Registration plate must not exceed 15 characters';
+          newErrors.registrationPlate = t('cars.registrationMaxLength');
         } else {
           delete newErrors.registrationPlate;
         }
         break;
       case 'manufacture':
         if (!Validators.required(value)) {
-          newErrors.manufacture = 'Manufacturer is required';
+          newErrors.manufacture = t('cars.manufacturerRequired');
         } else if (!Validators.minLength(value, 2)) {
-          newErrors.manufacture = 'Manufacturer must be at least 2 characters';
+          newErrors.manufacture = t('cars.manufacturerMinLength');
         } else {
           delete newErrors.manufacture;
         }
         break;
       case 'lastInspectionDate':
         if (!Validators.required(value)) {
-          newErrors.lastInspectionDate = 'Last inspection date is required';
+          newErrors.lastInspectionDate = t('cars.lastInspectionRequired');
         } else {
           delete newErrors.lastInspectionDate;
         }
@@ -155,10 +157,10 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
   return (
     <View style={styles.container}>
       <Card style={styles.card}>
-        <Card.Title title="Register a Car" />
+        <Card.Title title={t('cars.registerCar')} />
         <Card.Content>
           <TextInput
-            label="Registration Plate"
+            label={t('cars.licensePlate')}
             value={registrationPlate}
             onChangeText={(text) => {
               setRegistrationPlate(text);
@@ -171,7 +173,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
           </HelperText>
 
           <TextInput
-            label="Manufacture"
+            label={t('cars.manufacture')}
             value={manufacture}
             onChangeText={(text) => {
               setManufacture(text);
@@ -183,13 +185,13 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
             {errors.manufacture}
           </HelperText>
 
-          <Button onPress={() => showDatePicker('manufacture')}>Select Date of Manufacture</Button>
+          <Button onPress={() => showDatePicker('manufacture')}>{t('cars.selectDateOfManufacture')}</Button>
           <HelperText type="info" visible>
-            Date of manufacture: {dateOfManufacture.toISOString().slice(0, 10)}
+            {t('cars.dateOfManufacture')}: {dateOfManufacture.toISOString().slice(0, 10)}
           </HelperText>
-          <Button onPress={() => showDatePicker('inspection')}>Select Last Inspection Date</Button>
+          <Button onPress={() => showDatePicker('inspection')}>{t('cars.selectLastInspectionDate')}</Button>
           <HelperText type="info" visible>
-            Last inspection date: {lastInspectionDate.toISOString().slice(0, 10)}
+            {t('cars.lastInspection')}: {lastInspectionDate.toISOString().slice(0, 10)}
           </HelperText>
           <HelperText type="error" visible={!!errors.lastInspectionDate}>
             {errors.lastInspectionDate}
@@ -204,7 +206,7 @@ const CarRegistrationForm: React.FC<Props> = ({navigation}) => {
             onPress={handleRegisterCar}
             disabled={!isFormValid()}
           >
-            Register Car
+            {t('cars.registerCar')}
           </Button>
         </Card.Actions>
       </Card>
