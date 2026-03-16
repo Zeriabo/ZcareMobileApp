@@ -90,6 +90,7 @@ Complete integration of z-repair service endpoints into the Zcare phone app with
 ### Repair Bookings
 ```
 POST   /api/repair-bookings              - Create booking
+POST   /api/repair-bookings/inspection   - Create inspection booking
 GET    /api/repair-bookings              - List all bookings
 GET    /api/repair-bookings/:id          - Get booking details
 PATCH  /api/repair-bookings/:id/status   - Update status
@@ -151,6 +152,18 @@ await dispatch(createRepairBooking({
 }));
 ```
 
+### Create Inspection Booking
+```typescript
+const dispatch = useDispatch();
+await dispatch(createInspectionBooking({
+  vehicleRegistrationNumber: "ABC-123",
+  repairShopId: "12",
+  scheduledDate: "2026-03-15T10:00:00",
+  notes: "First inspection"
+}));
+```
+
+
 ### Check Inspection Status
 ```typescript
 const dispatch = useDispatch();
@@ -188,6 +201,7 @@ PENDING → CONFIRMED → IN_PROGRESS → COMPLETED
 |---------|--------|----------|
 | View repair bookings list | ✅ | RepairBookingsScreen |
 | Create repair booking | ✅ | RepairShopScreen |
+| Create inspection booking | ✅ | RepairShopScreen |
 | Update booking status | ✅ | RepairBookingsScreen |
 | Cancel booking | ✅ | RepairBookingsScreen |
 | Check inspection status | ✅ | RepairShopScreen (auto) |

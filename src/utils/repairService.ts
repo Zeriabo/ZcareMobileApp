@@ -58,6 +58,13 @@ export interface CreateRepairBookingRequest {
   description?: string;
 }
 
+export interface CreateInspectionBookingRequest {
+  vehicleRegistrationNumber: string;
+  repairShopId: string;
+  scheduledDate: string;
+  notes?: string;
+}
+
 export interface UpdateRepairBookingStatusRequest {
   status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 }
@@ -155,6 +162,14 @@ export const getRepairBooking = async (bookingId: string | number): Promise<Repa
  */
 export const createRepairBooking = async (data: CreateRepairBookingRequest): Promise<RepairBooking> => {
   const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.CREATE;
+  return apiClient.post<RepairBooking>(endpoint, data);
+};
+
+/**
+ * Create a new inspection booking
+ */
+export const createInspectionBooking = async (data: CreateInspectionBookingRequest): Promise<RepairBooking> => {
+  const endpoint = API_ENDPOINTS.REPAIR_BOOKINGS.INSPECTION;
   return apiClient.post<RepairBooking>(endpoint, data);
 };
 

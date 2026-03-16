@@ -7,17 +7,19 @@ type Props = {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  style?: any;
+  textStyle?: any;
 };
 
-const PrimaryButton: React.FC<Props> = ({ label, onPress, loading, disabled }) => {
+const PrimaryButton: React.FC<Props> = ({ label, onPress, loading, disabled, style, textStyle }) => {
   const isDisabled = Boolean(disabled || loading);
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={[styles.button, isDisabled && styles.disabled]}
+      style={[styles.button, style, isDisabled && styles.disabled]}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{label}</Text>}
+      {loading ? <ActivityIndicator color="#fff" /> : <Text style={[styles.text, textStyle]}>{label}</Text>}
     </Pressable>
   );
 };

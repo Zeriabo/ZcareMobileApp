@@ -23,7 +23,9 @@ const normalizeToken = (token?: string) => (token || '').trim().replace(/^Bearer
 
 export const signIn = (userData: any) => {
   return async (dispatch: Dispatch<any>) => {
-    if (signInInFlight) return;
+    if (signInInFlight) {
+      logger.debug('Sign in already in progress, continuing');
+    }
     signInInFlight = true;
 
     const sanitizedUserData = {
@@ -62,8 +64,11 @@ export const signIn = (userData: any) => {
           },
         );
         
-        // apiClient returns data directly
-        let userData = response;
+        // apiClient returns data directly, but axios-style responses include data
+        let userData: any = response;
+        if (userData && typeof userData === "object" && "data" in userData && (userData as any).data) {
+          userData = (userData as any).data;
+        }
         
         // Handle response wrapped in numeric keys (like other endpoints)
         if (userData && typeof userData === 'object' && !userData.token && Object.keys(userData).some(k => !isNaN(Number(k)))) {

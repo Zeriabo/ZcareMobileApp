@@ -32,6 +32,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
   const { t } = useLanguage();
   const dispatch = useDispatch<any>();
   const { user } = useSelector((state: any) => state.user);
+  const selectedStation = useSelector((state: any) => state.station?.selectedStation);
   const selectedProgram = route.params.selectedProgram;
 
   const [program, setProgram] = useState<any>({});
@@ -181,6 +182,7 @@ const BuywashScreen: React.FC<Props> = ({ route, navigation }) => {
         programType: isDeliveryType ? 'waterless' : selectedProgram?.programType,
         paymentProgramId: Number.isFinite(selectedProgramId) && selectedProgramId > 0 ? selectedProgramId : undefined,
         paymentProgramType: isDeliveryType ? 'waterless' : selectedProgram?.programType,
+        stationId: selectedStation?.id ?? selectedStation?.stationId,
       };
 
       await dispatch(create_paymentIntent(checkoutProgram, method));

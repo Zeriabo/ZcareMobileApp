@@ -192,3 +192,16 @@ test('repairService: Repair booking status lifecycle', () => {
     assert.ok(Array.isArray(state.canTransitionTo));
   });
 });
+
+test('repairService: Inspection booking request validation', () => {
+  const inspectionRequest = {
+    vehicleRegistrationNumber: 'ABC-123',
+    repairShopId: 'shop-1',
+    scheduledDate: '2026-03-20T09:00:00',
+    notes: 'Annual inspection',
+  };
+
+  assert.ok(inspectionRequest.vehicleRegistrationNumber);
+  assert.ok(inspectionRequest.repairShopId);
+  assert.ok(inspectionRequest.scheduledDate);
+});

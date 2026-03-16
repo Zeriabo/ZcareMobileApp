@@ -88,15 +88,18 @@ export const notifyRepairBookingCreated = async (vehicleplate: string, scheduled
 };
 
 export const notifyRepairStatusChanged = async (vehicleplate: string, newStatus: string) => {
+  const statusKey = (newStatus || "").toUpperCase();
   const statusMessages: Record<string, string> = {
-    CONFIRMED: '✓ Your repair has been confirmed',
-    IN_PROGRESS: '⏳ Your repair is now in progress',
-    COMPLETED: '✅ Your repair is complete',
-    CANCELLED: '❌ Your repair has been cancelled',
+    CONFIRMED: "✓ Your repair has been confirmed",
+    IN_PROGRESS: "⏳ Your repair is now in progress",
+    COMPLETED: "✅ Your repair is complete",
+    CANCELLED: "❌ Your repair has been cancelled",
   };
-  
-  const message = statusMessages[newStatus] || `Status updated to ${newStatus}`;
-  await displayLocalNotification('🔧 Repair Status Update', `${vehicleplate}: ${message}`);
+
+  const message = statusMessages[statusKey] || "Status updated to " + (statusKey || newStatus);
+  const suffix = statusKey || newStatus;
+  const suffixText = suffix ? " (" + suffix + ")" : "";
+  await displayLocalNotification("🔧 Repair Status Update", vehicleplate + ": " + message + suffixText);
 };
 
 export const notifyInspectionOverdue = async (vehicleplate: string, daysOverdue: number) => {

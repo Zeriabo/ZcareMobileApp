@@ -60,6 +60,7 @@ export const API_ENDPOINTS = {
     UPDATE: '/user/profile',
     UPDATE_PASSWORD: '/user/change-password',
     DELETE_ACCOUNT: '/user/account',
+    FCM_TOKEN: (id: string | number) => `/v1/users/${id}/fcm-token`,
   },
 
   // Payment
@@ -81,6 +82,7 @@ export const API_ENDPOINTS = {
   REPAIR_BOOKINGS: {
     LIST: '/api/repair-bookings',
     CREATE: '/api/repair-bookings',
+    INSPECTION: '/api/repair-bookings/inspection',
     DETAIL: (id: string) => `/api/repair-bookings/${id}`,
     UPDATE_STATUS: (id: string) => `/api/repair-bookings/${id}/status`,
     DELETE: (id: string) => `/api/repair-bookings/${id}`,

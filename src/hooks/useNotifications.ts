@@ -1,8 +1,15 @@
 import { getMessaging, getToken, onMessage } from '@react-native-firebase/messaging';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import { updateFcmToken } from '../utils/userService';
 import notifee, { AndroidImportance } from '../utils/notifeeCompat';
 
 export const useNotifications = () => {
+  const user = useSelector((state: RootState) => state.user.user as any);
+  const lastSentTokenRef = useRef<string | null>(null);
+  const lastSentUserIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     // We declare unsubscribe outside so we can call it in the cleanup function
     let unsubscribeMessaging: () => void;
@@ -25,6 +32,15 @@ export const useNotifications = () => {
       // 3. Get FCM Token
       const token = await getToken(messagingInstance);
       console.log('FCM Token:', token);
+      if (user?.id && token && (lastSentTokenRef.current !== token || lastSentUserIdRef.current !== user.id)) {
+        try {
+          await updateFcmToken(user.id, token, user?.token);
+          lastSentTokenRef.current = token;
+          lastSentUserIdRef.current = user.id;
+        } catch (error) {
+          console.warn('Failed to update FCM token', error);
+        }
+      }
 
       // 4. Listen for foreground messages
       unsubscribeMessaging = onMessage(messagingInstance, async remoteMessage => {
@@ -45,5 +61,5 @@ export const useNotifications = () => {
     return () => {
       if (unsubscribeMessaging) unsubscribeMessaging();
     };
-  }, []);
+  }, [user?.id, user?.token]);
 };

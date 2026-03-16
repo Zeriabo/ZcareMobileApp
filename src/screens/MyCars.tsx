@@ -32,6 +32,21 @@ function MyCars() {
     return parsed.toDateString();
   };
 
+  const getInspectionReminder = (inspection?: any) => {
+    if (!inspection) return null;
+    const daysUntilDue = typeof inspection.daysUntilDue === 'number' ? inspection.daysUntilDue : null;
+    if (daysUntilDue !== null && daysUntilDue < 0) {
+      return { text: t('cars.inspectionReminderOverdue', { days: Math.abs(daysUntilDue) }), color: '$red10' };
+    }
+    if (inspection.dueWithinThreshold) {
+      return { text: t('cars.inspectionReminderDueSoon', { days: daysUntilDue ?? 0 }), color: '$yellow10' };
+    }
+    if (inspection.lastInspectionDate) {
+      return { text: t('cars.inspectionReminderLast', { date: inspection.lastInspectionDate }), color: '$green10' };
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (user?.token && isFocused) {
       dispatch(getUserCars(user.token));
@@ -125,6 +140,7 @@ function MyCars() {
         const inspection = inspectionData.get(plate);
         const badge = getInspectionBadge(inspection?.dueWithinThreshold ? 'WARNING' : 'PASSED');
         const nextInspection = inspection?.nextInspectionDate || getNextInspectionDate(inspection?.lastInspectionDate);
+        const reminder = getInspectionReminder(inspection);
         return (
           <Card
             key={car.carId}
@@ -159,6 +175,11 @@ function MyCars() {
               <Text fontSize={14} color="$gray10">
                 {t('cars.nextInspectionDue')}: {nextInspection || t('cars.notAvailable')}
               </Text>
+              {reminder ? (
+                <Text fontSize={13} color={reminder.color}>
+                  {reminder.text}
+                </Text>
+              ) : null}
               <Text fontSize={13} color="$gray9">
                 {t('cars.inspectionStatus')}: {inspection?.message || t('cars.notAvailable')}
               </Text>

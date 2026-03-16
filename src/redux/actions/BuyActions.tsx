@@ -48,6 +48,7 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
       : 'foam';
     const safeProgramId = Number(program?.paymentProgramId ?? program?.id);
     const safePrice = Number(program?.price);
+    const stationId = Number(program?.stationId ?? program?.station?.id);
     const normalizedPrice = Number.isFinite(safePrice) ? Math.max(0.5, safePrice) : 0.5;
 
     const programIdForPayment =
@@ -67,6 +68,7 @@ export const create_paymentIntent = (program: any, method: 'card' | 'apple_pay' 
         price: normalizedPrice,
         programType: safeProgramType,
       },
+      stationId: Number.isFinite(stationId) ? stationId : undefined,
       paymentMethod: {
         paymentMethodType, 
       },

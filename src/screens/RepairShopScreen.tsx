@@ -8,7 +8,7 @@ import AppCard from '../components/ui/AppCard';
 import AppHeader from '../components/ui/AppHeader';
 import PrimaryButton from '../components/ui/PrimaryButton';
 import { useLanguage } from '../contexts/LanguageContext';
-import { createRepairBooking, fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
+import { createInspectionBooking, createRepairBooking, fetchInspectionStatusWithFallback } from '../redux/actions/repairActions';
 import { RootState } from '../redux/store';
 import { RootStackParamList } from '../redux/types/stackParams';
 import { Colors, Radius, Spacing } from '../theme/design';
@@ -206,6 +206,55 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
+  const handleBookInspection = async () => {
+    if (!user?.token) {
+      Alert.alert(t('repair.signInRequired'), t('repair.signInBeforeBooking'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('auth.signIn'), onPress: () => navigation.navigate('SignIn') },
+      ]);
+      return;
+    }
+
+    if (!selectedCarId || !selectedCarPlate) {
+      Alert.alert(t('repair.selectCar'), t('repair.selectCarForBooking'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const numericShopId = Math.abs(shop.id.split('-')[0].split('').reduce((acc, char) => {
+        return acc + char.charCodeAt(0);
+      }, 0)) % 1000 + 1;
+
+      const bookingData = {
+        vehicleRegistrationNumber: selectedCarPlate,
+        repairShopId: numericShopId,
+        scheduledDate: scheduleAt,
+        description: t('repair.inspectionBookingDescription'),
+      };
+
+      await dispatch(createInspectionBooking(bookingData) as any);
+
+      Alert.alert(t('common.success'), t('repair.inspectionBookingCreated'), [
+        {
+          text: t('repair.viewBookings'),
+          onPress: () => navigation.navigate('RepairBookings' as any),
+        },
+        {
+          text: t('common.done'),
+          onPress: () => goBackSafe(),
+        },
+      ]);
+    } catch (error: any) {
+      Alert.alert(
+        t('repair.inspectionBookingFailed'),
+        error?.message || t('repair.failedCreateInspectionBookingTryAgain')
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader title={shop.name} subtitle={shop.location} onBack={goBackSafe} />
@@ -307,6 +356,13 @@ const RepairShopScreen: React.FC<Props> = ({ route, navigation }) => {
           label={loading || repairLoading ? t('repair.bookingInProgress') : t('repair.bookRepair')} 
           loading={loading || repairLoading} 
         />
+        <PrimaryButton
+          onPress={handleBookInspection}
+          label={loading || repairLoading ? t('repair.bookingInProgress') : t('repair.bookInspection')}
+          loading={loading || repairLoading}
+          style={styles.secondaryButton}
+          textStyle={styles.secondaryButtonText}
+        />
       </AppCard>
     </ScrollView>
   );
@@ -321,6 +377,8 @@ const styles = StyleSheet.create({
   priceTag: { marginTop: 8, color: Colors.text, fontWeight: '700' },
   pickerWrap: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: Radius.sm, marginTop: 8 },
   input: { marginTop: 8, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text },
+  secondaryButton: { marginTop: 8, backgroundColor: Colors.card },
+  secondaryButtonText: { color: Colors.text },
 });
 
 export default RepairShopScreen;

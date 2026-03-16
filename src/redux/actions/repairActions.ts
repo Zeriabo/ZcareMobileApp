@@ -191,6 +191,55 @@ export const createRepairBooking = (data: CreateRepairBookingRequest) => {
 };
 
 /**
+ * Create a new inspection booking
+ */
+export const createInspectionBooking = (data: CreateRepairBookingRequest) => {
+  return async (dispatch: AppDispatch) => {
+    try {
+      dispatch({
+        type: REPAIR_ACTION_TYPES.SET_REPAIR_LOADING,
+        payload: true,
+      });
+
+      const newBooking = await repairService.createInspectionBooking({
+        vehicleRegistrationNumber: data.vehicleRegistrationNumber,
+        repairShopId: data.repairShopId,
+        scheduledDate: data.scheduledDate,
+        notes: data.description,
+      } as any);
+
+      dispatch({
+        type: REPAIR_ACTION_TYPES.ADD_REPAIR_BOOKING,
+        payload: newBooking,
+      });
+
+      await notifyRepairBookingCreated(
+        data.vehicleRegistrationNumber,
+        data.scheduledDate
+      );
+
+      await scheduleRepairReminder(data.scheduledDate, data.vehicleRegistrationNumber);
+
+      logger.info('Inspection booking created', { bookingId: newBooking.id });
+      return newBooking;
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to create inspection booking';
+      dispatch({
+        type: REPAIR_ACTION_TYPES.SET_REPAIR_ERROR,
+        payload: errorMessage,
+      });
+      logger.error('Failed to create inspection booking', { error: errorMessage });
+      throw error;
+    } finally {
+      dispatch({
+        type: REPAIR_ACTION_TYPES.SET_REPAIR_LOADING,
+        payload: false,
+      });
+    }
+  };
+};
+
+/**
  * Update repair booking status
  */
 export const updateRepairBookingStatus = (bookingId: string | number, status: string) => {

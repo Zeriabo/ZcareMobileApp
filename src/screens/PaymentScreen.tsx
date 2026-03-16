@@ -32,6 +32,7 @@ const PaymentScreen = ({ program, user, selectedCar, selectedStation }: any) => 
           price: program.price,
           programType: program.programType,
         },
+        stationId: selectedStation?.id ?? selectedStation?.stationId,
         paymentMethod: { paymentMethodType: 'credit_card' },
       };
 
