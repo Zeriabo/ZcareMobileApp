@@ -49,12 +49,19 @@ disablePaymentMockMode();
 
 ## Mock Endpoints
 
-The following payment endpoints are mocked:
+The following endpoints are mocked:
 
+### Payment Endpoints
 - `/payment/create-payment-intent` - Returns a mock payment intent with client secret
 - `/payment/setup-intent` or `/payment/create-setup-intent` - Returns a mock setup intent
 - `/payment/confirm-payment` - Returns a mock payment confirmation
 - `/payment/saved-cards`, `/payment/cards` - Returns mock saved cards list or attaches a payment method
+
+### Catalog Endpoints
+- `/api/catalog/skus` - Returns mock repair service catalog with pricing
+
+### Booking Endpoints
+- `/booking/{id}`, `/bookings/{id}` - Returns mock booking details with live status simulation
 
 ## Mock Data
 
@@ -83,6 +90,31 @@ All mock responses include realistic fields:
   "status": "requires_payment_method"
 }
 ```
+
+### Catalog SKU (Repair Service)
+```json
+{
+  "id": "1",
+  "name": "Oil Change",
+  "description": "Standard oil change with filter replacement",
+  "durationMinutes": 30,
+  "priceAmount": 4500,
+  "priceCurrency": "EUR",
+  "active": true
+}
+```
+
+Returns an array of 10 repair services including:
+- Oil Change
+- Brake Service
+- Tire Rotation
+- Engine Diagnostic
+- Battery Replacement
+- Air Filter Replacement
+- Transmission Service
+- Wheel Alignment
+- AC Service
+- General Inspection
 
 ## Development Tips
 
